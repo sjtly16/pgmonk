@@ -11,17 +11,11 @@ var (
 	colorDanger    = lipgloss.Color("#EF4444") // red
 	colorMuted     = lipgloss.Color("#6B7280") // gray
 	colorText      = lipgloss.Color("#E5E7EB") // light gray
-	colorBg        = lipgloss.Color("#111827") // dark
-	colorAccent    = lipgloss.Color("#A78BFA") // light violet
+	colorAccent = lipgloss.Color("#A78BFA") // light violet
 )
 
 // Layout styles.
 var (
-	styleTitle = lipgloss.NewStyle().
-			Bold(true).
-			Foreground(colorPrimary).
-			MarginBottom(1)
-
 	styleSubtitle = lipgloss.NewStyle().
 			Foreground(colorAccent).
 			Bold(true)
@@ -66,11 +60,6 @@ var (
 
 	styleTabInactive = lipgloss.NewStyle().
 			Foreground(colorMuted).
-			Padding(0, 1)
-
-	styleBox = lipgloss.NewStyle().
-			Border(lipgloss.RoundedBorder()).
-			BorderForeground(colorMuted).
 			Padding(0, 1)
 
 	styleHeader = lipgloss.NewStyle().

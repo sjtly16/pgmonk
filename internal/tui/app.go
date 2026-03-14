@@ -49,7 +49,6 @@ type Model struct {
 	scrollOffset    int
 	selectedRow     int
 	dashboardScroll int
-	err             error
 }
 
 // NewModel creates a new TUI model.
