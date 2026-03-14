@@ -1,0 +1,28 @@
+# Binary
+pg-monk
+pg-monk.exe
+
+# Build artifacts
+dist/
+*.tar.gz
+*.zip
+
+# Go
+vendor/
+*.test
+*.out
+coverage.txt
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Debug
+debug.log
