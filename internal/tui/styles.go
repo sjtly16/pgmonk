@@ -16,14 +16,6 @@ var (
 
 // Layout styles.
 var (
-	styleSubtitle = lipgloss.NewStyle().
-			Foreground(colorAccent).
-			Bold(true)
-
-	styleLabel = lipgloss.NewStyle().
-			Foreground(colorMuted).
-			Width(20)
-
 	styleValue = lipgloss.NewStyle().
 			Foreground(colorText).
 			Bold(true)
@@ -52,24 +44,9 @@ var (
 	styleWaiting = lipgloss.NewStyle().
 			Foreground(colorDanger)
 
-	styleTabActive = lipgloss.NewStyle().
-			Bold(true).
-			Foreground(lipgloss.Color("#FFFFFF")).
-			Background(lipgloss.Color("#1E293B")).
-			Padding(0, 2)
-
-	styleTabInactive = lipgloss.NewStyle().
-			Foreground(colorMuted).
-			Padding(0, 2)
-
 	styleHeader = lipgloss.NewStyle().
 			Foreground(colorSecondary).
 			Bold(true)
-
-	styleSectionTitle = lipgloss.NewStyle().
-				Foreground(colorAccent).
-				Bold(true).
-				PaddingLeft(1)
 
 	styleKeyBadge = lipgloss.NewStyle().
 			Foreground(lipgloss.Color("#FFFFFF")).

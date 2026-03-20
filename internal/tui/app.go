@@ -644,31 +644,6 @@ func formatDuration(ms float64) string {
 	}
 }
 
-func connectionBar(current, max int, width int) string {
-	if max == 0 {
-		return ""
-	}
-	ratio := float64(current) / float64(max)
-	filled := int(ratio * float64(width))
-	if filled > width {
-		filled = width
-	}
-
-	var barColor lipgloss.Color
-	switch {
-	case ratio > 0.85:
-		barColor = lipgloss.Color(colorDanger)
-	case ratio > 0.60:
-		barColor = lipgloss.Color(colorWarning)
-	default:
-		barColor = lipgloss.Color(colorSuccess)
-	}
-
-	bar := lipgloss.NewStyle().Foreground(barColor).Render(strings.Repeat("█", filled))
-	empty := lipgloss.NewStyle().Foreground(colorMuted).Render(strings.Repeat("░", width-filled))
-	return bar + empty
-}
-
 // nextClient returns the client address after the given one.
 func (m Model) nextClient(current string) string {
 	if m.snapshot == nil || len(m.snapshot.Clients) == 0 {

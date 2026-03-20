@@ -337,30 +337,6 @@ func (m Model) renderActiveQueriesSection(w int) string {
 	return dashSectionTitle("ACTIVE QUERIES") + "\n" + box
 }
 
-// --- Helper style functions (kept for other views) ---
-
-// sectionHeader renders a styled section header (used by non-dashboard views).
-func sectionHeader(title string) string {
-	return styleSectionTitle.Render("── " + title + " ──")
-}
-
-func trendIndicator(current, previous float64, higherIsBetter bool) string {
-	diff := current - previous
-	if diff > 0 {
-		if higherIsBetter {
-			return styleGood.Render("↑")
-		}
-		return styleWarn.Render("↑")
-	}
-	if diff < 0 {
-		if higherIsBetter {
-			return styleWarn.Render("↓")
-		}
-		return styleGood.Render("↓")
-	}
-	return lipgloss.NewStyle().Foreground(colorMuted).Render("→")
-}
-
 func renderEmptyState(title, subtitle string) string {
 	content := lipgloss.NewStyle().Foreground(colorText).Bold(true).Render(title) + "\n" +
 		lipgloss.NewStyle().Foreground(colorMuted).Render(subtitle)
@@ -372,36 +348,6 @@ func renderEmptyState(title, subtitle string) string {
 		Width(59).
 		Render(content)
 	return "\n" + box + "\n"
-}
-
-func deadlockStyle(count int64) lipgloss.Style {
-	if count > 0 {
-		return styleBad
-	}
-	return styleGood
-}
-
-func rollbackStyle(ratio float64) lipgloss.Style {
-	if ratio > 5 {
-		return styleBad
-	}
-	if ratio > 1 {
-		return styleWarn
-	}
-	return styleGood
-}
-
-func stateColor(state string) lipgloss.Style {
-	switch state {
-	case "streaming":
-		return styleGood
-	case "startup", "catchup":
-		return styleWarn
-	case "backup", "stopping":
-		return lipgloss.NewStyle().Foreground(colorSecondary)
-	default:
-		return lipgloss.NewStyle().Foreground(colorMuted)
-	}
 }
 
 func formatNumber(n int64) string {
