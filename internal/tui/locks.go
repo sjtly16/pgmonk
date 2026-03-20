@@ -14,6 +14,8 @@ func (m Model) renderLocks() string {
 	}
 
 	var b strings.Builder
+	w := m.contentWidth()
+	innerW := w - 7
 
 	// Summary: count granted vs waiting.
 	granted, waiting, blocking := 0, 0, 0
@@ -28,15 +30,17 @@ func (m Model) renderLocks() string {
 		}
 	}
 
-	b.WriteString(fmt.Sprintf("  Granted: %s  │  Waiting: %s  │  Blocked: %s\n\n",
+	summaryLine := fmt.Sprintf("Granted: %s  │  Waiting: %s  │  Blocked: %s",
 		styleGood.Render(fmt.Sprintf("%d", granted)),
 		waitingStyle(waiting).Render(fmt.Sprintf("%d", waiting)),
 		waitingStyle(blocking).Render(fmt.Sprintf("%d", blocking)),
-	))
+	)
+	b.WriteString(dashBox(innerW).Render(summaryLine))
+	b.WriteString("\n")
 
 	// Show waiting / blocked locks first (they're the interesting ones).
 	if waiting > 0 || blocking > 0 {
-		b.WriteString(styleSubtitle.Render("  ⚠ Blocked Sessions") + "\n")
+		b.WriteString(dashSectionTitle("BLOCKED SESSIONS") + "\n")
 		header := fmt.Sprintf("  %-7s %-10s %-8s %-20s %-25s %-12s %-9s %s",
 			"PID", "Duration", "User", "Relation", "Mode", "Blocked By", "Status", "Query",
 		)
@@ -93,19 +97,20 @@ func (m Model) renderLocks() string {
 		b.WriteString("\n")
 	}
 
-	// All locks summary by type.
+	// All locks summary by type in a box.
 	locksByType := map[string]int{}
 	for _, l := range m.snapshot.Locks {
 		locksByType[l.LockType]++
 	}
 
-	b.WriteString(styleSubtitle.Render("  Lock Summary by Type") + "\n")
+	b.WriteString(dashSectionTitle("LOCK SUMMARY BY TYPE") + "\n")
+	var lockRows []string
 	for lt, count := range locksByType {
-		b.WriteString(fmt.Sprintf("  %-25s %s\n",
-			lipgloss.NewStyle().Foreground(colorMuted).Render(lt),
-			styleValue.Render(fmt.Sprintf("%d", count)),
-		))
+		lockRows = append(lockRows, kvRow(lt, fmt.Sprintf("%d", count), innerW))
 	}
+	lockContent := joinWithDividers(lockRows, innerW)
+	b.WriteString(dashBox(innerW).Render(lockContent))
+	b.WriteString("\n")
 
 	return b.String()
 }

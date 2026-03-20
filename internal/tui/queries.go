@@ -20,18 +20,24 @@ func (m Model) renderQueries() string {
 	}
 
 	var b strings.Builder
-
-	// Sort indicator.
-	sortLabel := fmt.Sprintf("Sorted by: %s (press 's' to cycle)", m.querySortBy)
-	b.WriteString("  " + lipgloss.NewStyle().Foreground(colorAccent).Render(sortLabel) + "\n\n")
+	w := m.contentWidth()
+	innerW := w - 7
 
 	// Sort the queries.
 	queries := make([]model.QueryStat, len(m.snapshot.Queries))
 	copy(queries, m.snapshot.Queries)
 	sortQueries(queries, m.querySortBy)
 
+	// Summary box.
+	sortLine := lipgloss.NewStyle().Foreground(colorAccent).Render(
+		fmt.Sprintf("Sorted by: %s (press 's' to cycle)", m.querySortBy))
+	totalQueries := fmt.Sprintf("Showing %s queries",
+		styleValue.Render(fmt.Sprintf("%d", len(queries))))
+	summaryContent := totalQueries + "\n" + kvDivider(innerW) + "\n" + sortLine
+	b.WriteString(dashBox(innerW).Render(summaryContent))
+	b.WriteString("\n")
+
 	// Dynamic column widths based on terminal width.
-	w := m.contentWidth()
 	showPlan := w > 100
 	showTemp := w > 110
 
@@ -56,8 +62,7 @@ func (m Model) renderQueries() string {
 		hdr += fmt.Sprintf(" %-8s", "Temp")
 	}
 	hdr += " Query"
-	header := hdr
-	b.WriteString(styleHeader.Render(header))
+	b.WriteString(styleHeader.Render(hdr))
 	b.WriteString("\n")
 	b.WriteString(m.renderDivider())
 	b.WriteString("\n")
@@ -135,27 +140,23 @@ func (m Model) renderQueries() string {
 
 // renderQueryDetail renders the detail panel for a selected query.
 func (m Model) renderQueryDetail(q model.QueryStat) string {
-	var b strings.Builder
-
-	panelWidth := m.contentWidth()
-	if panelWidth > 100 {
-		panelWidth = 100
+	w := m.contentWidth()
+	innerW := w - 7
+	if innerW > 100 {
+		innerW = 100
 	}
-
-	b.WriteString("\n")
-	b.WriteString(styleSubtitle.Render("  Query Detail") + "\n")
-	b.WriteString(m.renderDivider() + "\n")
 
 	lbl := lipgloss.NewStyle().Foreground(colorMuted)
 
-	b.WriteString(fmt.Sprintf("  %s %s    %s %s    %s %d\n",
+	var rows []string
+	rows = append(rows, fmt.Sprintf("%s %s    %s %s    %s %d",
 		lbl.Render("Database:"), styleValue.Render(q.DatabaseName),
 		lbl.Render("User:"), styleValue.Render(q.UserName),
 		lbl.Render("Query ID:"), q.QueryID,
 	))
 
 	// Timing.
-	b.WriteString(fmt.Sprintf("  %s total=%s  mean=%s  min=%s  max=%s  stddev=%s\n",
+	rows = append(rows, fmt.Sprintf("%s total=%s  mean=%s  min=%s  max=%s  stddev=%s",
 		lbl.Render("Exec Time:"),
 		styleValue.Render(formatDuration(q.TotalExecTime)),
 		styleValue.Render(formatDuration(q.MeanExecTime)),
@@ -163,7 +164,7 @@ func (m Model) renderQueryDetail(q model.QueryStat) string {
 		styleValue.Render(formatDuration(q.MaxExecTime)),
 		styleValue.Render(formatDuration(q.StddevExecTime)),
 	))
-	b.WriteString(fmt.Sprintf("  %s total=%s  mean=%s\n",
+	rows = append(rows, fmt.Sprintf("%s total=%s  mean=%s",
 		lbl.Render("Plan Time:"),
 		styleValue.Render(formatDuration(q.TotalPlanTime)),
 		styleValue.Render(formatDuration(q.MeanPlanTime)),
@@ -171,7 +172,7 @@ func (m Model) renderQueryDetail(q model.QueryStat) string {
 
 	// Blocks.
 	totalBlks := q.SharedBlksHit + q.SharedBlksRead
-	b.WriteString(fmt.Sprintf("  %s %s    %s hit=%s read=%s (total=%s)\n",
+	rows = append(rows, fmt.Sprintf("%s %s    %s hit=%s read=%s (total=%s)",
 		lbl.Render("Calls:"), styleValue.Render(formatCallCount(q.Calls)),
 		lbl.Render("Blocks:"),
 		styleValue.Render(formatCallCount(q.SharedBlksHit)),
@@ -181,14 +182,14 @@ func (m Model) renderQueryDetail(q model.QueryStat) string {
 
 	// Temp and WAL.
 	if q.TempBlksWritten > 0 || q.TempBlksRead > 0 {
-		b.WriteString(fmt.Sprintf("  %s read=%s written=%s\n",
+		rows = append(rows, fmt.Sprintf("%s read=%s written=%s",
 			lbl.Render("Temp Blocks:"),
 			styleBad.Render(formatCallCount(q.TempBlksRead)),
 			styleBad.Render(formatCallCount(q.TempBlksWritten)),
 		))
 	}
 	if q.WALRecords > 0 {
-		b.WriteString(fmt.Sprintf("  %s records=%s  bytes=%s  fpi=%s\n",
+		rows = append(rows, fmt.Sprintf("%s records=%s  bytes=%s  fpi=%s",
 			lbl.Render("WAL:"),
 			styleValue.Render(formatCallCount(q.WALRecords)),
 			styleValue.Render(formatBytes(q.WALBytes)),
@@ -196,7 +197,7 @@ func (m Model) renderQueryDetail(q model.QueryStat) string {
 		))
 	}
 	if q.JITFunctions > 0 {
-		b.WriteString(fmt.Sprintf("  %s functions=%d  time=%s\n",
+		rows = append(rows, fmt.Sprintf("%s functions=%d  time=%s",
 			lbl.Render("JIT:"),
 			q.JITFunctions,
 			styleValue.Render(formatDuration(q.JITTime)),
@@ -204,20 +205,23 @@ func (m Model) renderQueryDetail(q model.QueryStat) string {
 	}
 
 	// Full query text.
-	b.WriteString(fmt.Sprintf("  %s\n", lbl.Render("Query:")))
 	queryText := strings.ReplaceAll(q.Query, "\n", " ")
 	queryText = strings.Join(strings.Fields(queryText), " ")
-	maxLineLen := panelWidth - 4
+	maxLineLen := innerW - 2
+	queryEntry := lbl.Render("Query:")
 	for len(queryText) > 0 {
 		end := maxLineLen
 		if end > len(queryText) {
 			end = len(queryText)
 		}
-		b.WriteString("    " + lipgloss.NewStyle().Foreground(colorText).Render(queryText[:end]) + "\n")
+		queryEntry += "\n  " + lipgloss.NewStyle().Foreground(colorText).Render(queryText[:end])
 		queryText = queryText[end:]
 	}
+	rows = append(rows, queryEntry)
 
-	return b.String()
+	content := joinWithDividers(rows, innerW)
+	box := dashBox(innerW).Render(content)
+	return "\n" + dashSectionTitle("QUERY DETAIL") + "\n" + box + "\n"
 }
 
 func sortQueries(queries []model.QueryStat, by string) {

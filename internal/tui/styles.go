@@ -55,12 +55,12 @@ var (
 	styleTabActive = lipgloss.NewStyle().
 			Bold(true).
 			Foreground(lipgloss.Color("#FFFFFF")).
-			Background(colorPrimary).
+			Background(lipgloss.Color("#1E293B")).
 			Padding(0, 2)
 
 	styleTabInactive = lipgloss.NewStyle().
 			Foreground(colorMuted).
-			Padding(0, 1)
+			Padding(0, 2)
 
 	styleHeader = lipgloss.NewStyle().
 			Foreground(colorSecondary).

@@ -15,11 +15,15 @@ func (m Model) renderInsights() string {
 	}
 
 	insights := analyzer.Analyze(m.snapshot)
+	w := m.contentWidth()
+	innerW := w - 7
 
 	var b strings.Builder
 
 	if len(insights) == 0 {
-		b.WriteString("  " + styleGood.Render("✓ No issues detected — database looks healthy!") + "\n")
+		content := styleGood.Render("All checks passed — database looks healthy!")
+		b.WriteString(dashBox(innerW).Render(content))
+		b.WriteString("\n")
 		return b.String()
 	}
 
@@ -36,12 +40,14 @@ func (m Model) renderInsights() string {
 		}
 	}
 
-	b.WriteString(fmt.Sprintf("  %s  %s  %s  Total: %d\n\n",
+	summaryLine := fmt.Sprintf("%s  %s  %s  │  Total: %d",
 		styleBad.Render(fmt.Sprintf("● critical: %d", critCount)),
 		styleWarn.Render(fmt.Sprintf("● warning: %d", warnCount)),
 		lipgloss.NewStyle().Foreground(colorSecondary).Render(fmt.Sprintf("● info: %d", infoCount)),
 		len(insights),
-	))
+	)
+	b.WriteString(dashBox(innerW).Render(summaryLine))
+	b.WriteString("\n")
 
 	maxRows := 20
 	if m.height > 0 {
@@ -49,6 +55,12 @@ func (m Model) renderInsights() string {
 		if maxRows < 3 {
 			maxRows = 3
 		}
+	}
+
+	// Responsive text width.
+	textWidth := innerW - 6
+	if textWidth < 40 {
+		textWidth = 40
 	}
 
 	shown := 0
@@ -60,8 +72,8 @@ func (m Model) renderInsights() string {
 			}
 			if shown >= maxRows {
 				remaining := len(insights) - shown
-				b.WriteString(lipgloss.NewStyle().Foreground(colorMuted).Render(
-					fmt.Sprintf("\n  ... and %d more insights", remaining)))
+				b.WriteString(lipgloss.NewStyle().Foreground(colorMuted).PaddingLeft(2).Render(
+					fmt.Sprintf("... and %d more insights", remaining)))
 				b.WriteString("\n")
 				return b.String()
 			}
@@ -69,24 +81,17 @@ func (m Model) renderInsights() string {
 			icon := severityIcon(ins.Severity)
 			titleStyle := severityStyle(ins.Severity)
 
-			// Responsive text width.
-			textWidth := m.contentWidth() - 8
-			if textWidth < 40 {
-				textWidth = 40
-			}
-
-			b.WriteString(fmt.Sprintf("  %s %s  %s\n",
+			insightContent := fmt.Sprintf("%s %s  %s\n%s\n%s %s",
 				icon,
 				titleStyle.Render(ins.Title),
 				lipgloss.NewStyle().Foreground(colorMuted).Render("["+ins.Category+"]"),
-			))
-			b.WriteString(fmt.Sprintf("     %s\n",
 				lipgloss.NewStyle().Foreground(colorText).Render(truncate(ins.Description, textWidth)),
-			))
-			b.WriteString(fmt.Sprintf("     %s %s\n",
-				lipgloss.NewStyle().Foreground(colorAccent).Render("→"),
-				lipgloss.NewStyle().Foreground(colorMuted).Render(truncate(ins.Suggestion, textWidth-2)),
-			))
+				lipgloss.NewStyle().Foreground(colorAccent).Render("->"),
+				lipgloss.NewStyle().Foreground(colorMuted).Render(truncate(ins.Suggestion, textWidth-3)),
+			)
+
+			b.WriteString(dashBox(innerW).Render(insightContent))
+			b.WriteString("\n")
 			shown++
 		}
 	}

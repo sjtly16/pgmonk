@@ -26,6 +26,8 @@ func (m Model) renderClients() string {
 // renderClientSummary renders the aggregated per-client view.
 func (m Model) renderClientSummary() string {
 	var b strings.Builder
+	w := m.contentWidth()
+	innerW := w - 7
 
 	clients := m.sortedClients()
 
@@ -38,14 +40,16 @@ func (m Model) renderClientSummary() string {
 		totalActive += c.ActiveConnections
 	}
 
-	b.WriteString(fmt.Sprintf("  Clients: %s  │  Total connections: %s  │  Active: %s\n",
+	summaryLine := fmt.Sprintf("Clients: %s  │  Total connections: %s  │  Active: %s",
 		styleValue.Render(fmt.Sprintf("%d", totalClients)),
 		styleValue.Render(fmt.Sprintf("%d", totalConns)),
 		styleActive.Render(fmt.Sprintf("%d", totalActive)),
-	))
-
-	sortLabel := fmt.Sprintf("  Sorted by: %s (press 's' to cycle)", m.clientSortBy)
-	b.WriteString(lipgloss.NewStyle().Foreground(colorAccent).Render(sortLabel) + "\n\n")
+	)
+	sortLine := lipgloss.NewStyle().Foreground(colorAccent).Render(
+		fmt.Sprintf("Sorted by: %s (press 's' to cycle)", m.clientSortBy))
+	summaryContent := summaryLine + "\n" + kvDivider(innerW) + "\n" + sortLine
+	b.WriteString(dashBox(innerW).Render(summaryContent))
+	b.WriteString("\n")
 
 	// Table header.
 	header := fmt.Sprintf("  %-18s %-6s %-6s %-6s %-6s %-6s %-12s %-12s %-18s %s",
@@ -67,8 +71,8 @@ func (m Model) renderClientSummary() string {
 	for i, c := range clients {
 		if i >= maxRows {
 			remaining := len(clients) - maxRows
-			b.WriteString(lipgloss.NewStyle().Foreground(colorMuted).Render(
-				fmt.Sprintf("  ... and %d more clients", remaining)))
+			b.WriteString(lipgloss.NewStyle().Foreground(colorMuted).PaddingLeft(2).Render(
+				fmt.Sprintf("... and %d more clients", remaining)))
 			b.WriteString("\n")
 			break
 		}
@@ -124,7 +128,8 @@ func (m Model) renderClientSummary() string {
 	}
 
 	b.WriteString("\n")
-	b.WriteString(lipgloss.NewStyle().Foreground(colorMuted).Render("  Press Enter on a client to see per-thread details"))
+	b.WriteString(lipgloss.NewStyle().Foreground(colorMuted).PaddingLeft(2).Render(
+		"Press Enter on a client to see per-thread details"))
 	b.WriteString("\n")
 
 	return b.String()
@@ -133,6 +138,8 @@ func (m Model) renderClientSummary() string {
 // renderClientThreads renders the per-thread (backend) details for the expanded client.
 func (m Model) renderClientThreads() string {
 	var b strings.Builder
+	w := m.contentWidth()
+	innerW := w - 7
 
 	// Find the selected client.
 	var client *model.ClientStat
@@ -146,33 +153,38 @@ func (m Model) renderClientThreads() string {
 		return "  Client not found. Press Esc to go back."
 	}
 
-	// Client summary header.
-	b.WriteString(fmt.Sprintf("  %s  %s\n",
-		styleSubtitle.Render("Client: "+client.ClientAddr),
-		lipgloss.NewStyle().Foreground(colorMuted).Render("(Esc to go back, j/k to navigate clients)"),
-	))
+	// Client summary in a box.
+	lbl := lipgloss.NewStyle().Foreground(colorMuted)
+	var summaryRows []string
+	summaryRows = append(summaryRows,
+		fmt.Sprintf("Connections: %s  │  Active: %s  │  Idle: %s  │  Idle-in-Tx: %s  │  Waiting: %s",
+			styleValue.Render(fmt.Sprintf("%d", client.TotalConnections)),
+			styleActive.Render(fmt.Sprintf("%d", client.ActiveConnections)),
+			styleIdle.Render(fmt.Sprintf("%d", client.IdleConnections)),
+			styleIdleInTx.Render(fmt.Sprintf("%d", client.IdleInTxConnections)),
+			styleWaiting.Render(fmt.Sprintf("%d", client.WaitingConnections)),
+		))
+	summaryRows = append(summaryRows,
+		fmt.Sprintf("Users: %s  │  Databases: %s  │  Apps: %s",
+			lipgloss.NewStyle().Foreground(colorAccent).Render(strings.Join(client.Users, ", ")),
+			lipgloss.NewStyle().Foreground(colorAccent).Render(strings.Join(client.Databases, ", ")),
+			lipgloss.NewStyle().Foreground(colorAccent).Render(strings.Join(client.Applications, ", ")),
+		))
+	summaryRows = append(summaryRows,
+		fmt.Sprintf("Longest query: %s  │  Longest transaction: %s",
+			durStyle(client.LongestQueryDur).Render(formatShortDuration(client.LongestQueryDur)),
+			durStyle(client.LongestTxDur).Render(formatShortDuration(client.LongestTxDur)),
+		))
+
+	_ = lbl // used in chart below
+	clientTitle := fmt.Sprintf("CLIENT: %s", client.ClientAddr)
+	summaryContent := joinWithDividers(summaryRows, innerW)
+	b.WriteString(dashSectionTitle(clientTitle) + "\n")
+	b.WriteString(dashBox(innerW).Render(summaryContent))
 	b.WriteString("\n")
 
-	// Aggregated stats for this client.
-	b.WriteString(fmt.Sprintf("  Connections: %s  │  Active: %s  │  Idle: %s  │  Idle-in-Tx: %s  │  Waiting: %s\n",
-		styleValue.Render(fmt.Sprintf("%d", client.TotalConnections)),
-		styleActive.Render(fmt.Sprintf("%d", client.ActiveConnections)),
-		styleIdle.Render(fmt.Sprintf("%d", client.IdleConnections)),
-		styleIdleInTx.Render(fmt.Sprintf("%d", client.IdleInTxConnections)),
-		styleWaiting.Render(fmt.Sprintf("%d", client.WaitingConnections)),
-	))
-	b.WriteString(fmt.Sprintf("  Users: %s  │  Databases: %s  │  Apps: %s\n",
-		lipgloss.NewStyle().Foreground(colorAccent).Render(strings.Join(client.Users, ", ")),
-		lipgloss.NewStyle().Foreground(colorAccent).Render(strings.Join(client.Databases, ", ")),
-		lipgloss.NewStyle().Foreground(colorAccent).Render(strings.Join(client.Applications, ", ")),
-	))
-	b.WriteString(fmt.Sprintf("  Longest query: %s  │  Longest transaction: %s\n",
-		durStyle(client.LongestQueryDur).Render(formatShortDuration(client.LongestQueryDur)),
-		durStyle(client.LongestTxDur).Render(formatShortDuration(client.LongestTxDur)),
-	))
-	b.WriteString("\n")
-
-	// Thread table header.
+	// Thread table.
+	b.WriteString(dashSectionTitle("BACKENDS") + "\n")
 	header := fmt.Sprintf("  %-7s %-8s %-12s %-15s %-10s %-10s %-18s %-10s %s",
 		"PID", "State", "User", "Database", "Query Dur", "Tx Dur", "Wait Event", "Uptime", "Query",
 	)
@@ -192,8 +204,8 @@ func (m Model) renderClientThreads() string {
 	for i, t := range client.Backends {
 		if i >= maxRows {
 			remaining := len(client.Backends) - maxRows
-			b.WriteString(lipgloss.NewStyle().Foreground(colorMuted).Render(
-				fmt.Sprintf("  ... and %d more threads", remaining)))
+			b.WriteString(lipgloss.NewStyle().Foreground(colorMuted).PaddingLeft(2).Render(
+				fmt.Sprintf("... and %d more threads", remaining)))
 			b.WriteString("\n")
 			break
 		}
@@ -224,7 +236,7 @@ func (m Model) renderClientThreads() string {
 		))
 	}
 
-	// Per-state breakdown mini chart.
+	// Per-state breakdown mini chart in a box.
 	b.WriteString("\n")
 	b.WriteString(m.renderThreadStateChart(client))
 
@@ -237,9 +249,10 @@ func (m Model) renderThreadStateChart(client *model.ClientStat) string {
 		return ""
 	}
 
-	var b strings.Builder
-	b.WriteString("  " + styleSubtitle.Render("Thread State Distribution") + "\n")
+	w := m.contentWidth()
+	innerW := w - 7
 
+	var b strings.Builder
 	total := float64(client.TotalConnections)
 	barWidth := 40
 
@@ -255,6 +268,7 @@ func (m Model) renderThreadStateChart(client *model.ClientStat) string {
 		{"waiting", client.WaitingConnections, styleWaiting},
 	}
 
+	var chartRows []string
 	for _, sc := range states {
 		if sc.count == 0 {
 			continue
@@ -267,12 +281,13 @@ func (m Model) renderThreadStateChart(client *model.ClientStat) string {
 
 		bar := sc.style.Render(strings.Repeat("█", filled))
 		label := fmt.Sprintf("%-10s %3d (%4.1f%%)", sc.name, sc.count, pct)
-		b.WriteString(fmt.Sprintf("  %s %s\n", lipgloss.NewStyle().Width(25).Render(label), bar))
+		chartRows = append(chartRows, lipgloss.NewStyle().Width(25).Render(label)+" "+bar)
 	}
 
 	// Per-database breakdown.
 	if len(client.Databases) > 1 {
-		b.WriteString("\n  " + styleSubtitle.Render("Connections by Database") + "\n")
+		chartRows = append(chartRows, "")
+		chartRows = append(chartRows, lipgloss.NewStyle().Foreground(colorAccent).Bold(true).Render("By Database"))
 		dbCounts := map[string]int{}
 		for _, t := range client.Backends {
 			dbCounts[t.DatabaseName]++
@@ -285,13 +300,14 @@ func (m Model) renderThreadStateChart(client *model.ClientStat) string {
 			}
 			bar := lipgloss.NewStyle().Foreground(colorSecondary).Render(strings.Repeat("█", filled))
 			label := fmt.Sprintf("%-15s %3d (%4.1f%%)", truncate(db, 15), count, pct)
-			b.WriteString(fmt.Sprintf("  %s %s\n", lipgloss.NewStyle().Width(25).Render(label), bar))
+			chartRows = append(chartRows, lipgloss.NewStyle().Width(25).Render(label)+" "+bar)
 		}
 	}
 
 	// Per-user breakdown.
 	if len(client.Users) > 1 {
-		b.WriteString("\n  " + styleSubtitle.Render("Connections by User") + "\n")
+		chartRows = append(chartRows, "")
+		chartRows = append(chartRows, lipgloss.NewStyle().Foreground(colorAccent).Bold(true).Render("By User"))
 		userCounts := map[string]int{}
 		for _, t := range client.Backends {
 			userCounts[t.UserName]++
@@ -304,9 +320,14 @@ func (m Model) renderThreadStateChart(client *model.ClientStat) string {
 			}
 			bar := lipgloss.NewStyle().Foreground(colorAccent).Render(strings.Repeat("█", filled))
 			label := fmt.Sprintf("%-15s %3d (%4.1f%%)", truncate(user, 15), count, pct)
-			b.WriteString(fmt.Sprintf("  %s %s\n", lipgloss.NewStyle().Width(25).Render(label), bar))
+			chartRows = append(chartRows, lipgloss.NewStyle().Width(25).Render(label)+" "+bar)
 		}
 	}
+
+	chartContent := strings.Join(chartRows, "\n")
+	b.WriteString(dashSectionTitle("THREAD STATE DISTRIBUTION") + "\n")
+	b.WriteString(dashBox(innerW).Render(chartContent))
+	b.WriteString("\n")
 
 	return b.String()
 }

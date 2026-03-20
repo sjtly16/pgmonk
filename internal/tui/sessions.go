@@ -16,6 +16,8 @@ func (m Model) renderSessions() string {
 	}
 
 	var b strings.Builder
+	w := m.contentWidth()
+	innerW := w - 7
 
 	// Sort the activities.
 	activities := make([]model.Activity, len(m.snapshot.Activities))
@@ -38,20 +40,21 @@ func (m Model) renderSessions() string {
 		}
 	}
 
-	b.WriteString(fmt.Sprintf("  %s %d  %s %d  %s %d  %s %d  │  Total: %d\n",
+	summaryLine := fmt.Sprintf("%s %d   %s %d   %s %d   %s %d   │  Total: %d",
 		styleActive.Render("● active:"), active,
 		styleIdle.Render("● idle:"), idle,
 		styleIdleInTx.Render("● idle-tx:"), idleTx,
 		styleWaiting.Render("● waiting:"), waiting,
 		len(activities),
-	))
+	)
+	sortLine := lipgloss.NewStyle().Foreground(colorAccent).Render(
+		fmt.Sprintf("Sorted by: %s (press 's' to cycle)", m.sessionSortBy))
 
-	// Sort indicator.
-	sortLabel := fmt.Sprintf("  Sorted by: %s (press 's' to cycle)", m.sessionSortBy)
-	b.WriteString(lipgloss.NewStyle().Foreground(colorAccent).Render(sortLabel) + "\n\n")
+	summaryContent := summaryLine + "\n" + kvDivider(innerW) + "\n" + sortLine
+	b.WriteString(dashBox(innerW).Render(summaryContent))
+	b.WriteString("\n")
 
 	// Dynamic column widths based on terminal width.
-	w := m.contentWidth()
 	showWait := w > 100
 	showBackend := w > 120
 	showApp := w > 90
@@ -130,7 +133,6 @@ func (m Model) renderSessions() string {
 		line := "  " + strings.Join(rowParts, " ")
 
 		if isSelected {
-			// Highlight selected row with a cursor indicator.
 			line = styleSelectedRow.Render("▸" + line[1:])
 		}
 
@@ -151,71 +153,61 @@ func (m Model) renderSessions() string {
 
 // renderSessionDetail renders the detail panel for a selected session.
 func (m Model) renderSessionDetail(a model.Activity) string {
-	var b strings.Builder
-
-	panelWidth := m.contentWidth()
-	if panelWidth > 100 {
-		panelWidth = 100
+	w := m.contentWidth()
+	innerW := w - 7
+	if innerW > 100 {
+		innerW = 100
 	}
 
-	b.WriteString("\n")
-	b.WriteString(styleSubtitle.Render("  Session Detail") + "\n")
-	b.WriteString(m.renderDivider() + "\n")
+	lbl := lipgloss.NewStyle().Foreground(colorMuted)
 
-	b.WriteString(fmt.Sprintf("  %s %d    %s %s    %s %s    %s %s\n",
-		lipgloss.NewStyle().Foreground(colorMuted).Render("PID:"),
-		a.PID,
-		lipgloss.NewStyle().Foreground(colorMuted).Render("State:"),
-		stateStyle(a.State).Render(a.State),
-		lipgloss.NewStyle().Foreground(colorMuted).Render("User:"),
-		styleValue.Render(a.UserName),
-		lipgloss.NewStyle().Foreground(colorMuted).Render("Database:"),
-		styleValue.Render(a.DatabaseName),
+	var rows []string
+	rows = append(rows, fmt.Sprintf("%s %d    %s %s    %s %s    %s %s",
+		lbl.Render("PID:"), a.PID,
+		lbl.Render("State:"), stateStyle(a.State).Render(a.State),
+		lbl.Render("User:"), styleValue.Render(a.UserName),
+		lbl.Render("Database:"), styleValue.Render(a.DatabaseName),
 	))
-	b.WriteString(fmt.Sprintf("  %s %s    %s %s    %s %s\n",
-		lipgloss.NewStyle().Foreground(colorMuted).Render("App:"),
-		styleValue.Render(a.ApplicationName),
-		lipgloss.NewStyle().Foreground(colorMuted).Render("Client:"),
-		styleValue.Render(a.ClientAddr),
-		lipgloss.NewStyle().Foreground(colorMuted).Render("Backend:"),
-		styleValue.Render(a.BackendType),
+	rows = append(rows, fmt.Sprintf("%s %s    %s %s    %s %s",
+		lbl.Render("App:"), styleValue.Render(a.ApplicationName),
+		lbl.Render("Client:"), styleValue.Render(a.ClientAddr),
+		lbl.Render("Backend:"), styleValue.Render(a.BackendType),
 	))
 
 	if a.WaitEventType != "" {
-		b.WriteString(fmt.Sprintf("  %s %s:%s\n",
-			lipgloss.NewStyle().Foreground(colorMuted).Render("Wait Event:"),
+		rows = append(rows, fmt.Sprintf("%s %s:%s",
+			lbl.Render("Wait Event:"),
 			styleWarn.Render(a.WaitEventType),
 			styleWarn.Render(a.WaitEvent),
 		))
 	}
 
 	if a.Duration > 0 {
-		b.WriteString(fmt.Sprintf("  %s %s\n",
-			lipgloss.NewStyle().Foreground(colorMuted).Render("Duration:"),
+		rows = append(rows, fmt.Sprintf("%s %s",
+			lbl.Render("Duration:"),
 			durStyle(a.Duration).Render(formatQueryDuration(a.Duration)),
 		))
 	}
 
-	// Full query text with word wrapping.
 	if a.Query != "" {
-		b.WriteString(fmt.Sprintf("  %s\n",
-			lipgloss.NewStyle().Foreground(colorMuted).Render("Query:"),
-		))
 		queryText := strings.ReplaceAll(a.Query, "\n", " ")
 		queryText = strings.Join(strings.Fields(queryText), " ")
-		// Wrap long queries.
-		maxLineLen := panelWidth - 4
+		maxLineLen := innerW - 2
+		queryLines := lbl.Render("Query:")
 		for len(queryText) > 0 {
 			end := maxLineLen
 			if end > len(queryText) {
 				end = len(queryText)
 			}
-			b.WriteString("    " + lipgloss.NewStyle().Foreground(colorText).Render(queryText[:end]) + "\n")
+			queryLines += "\n  " + lipgloss.NewStyle().Foreground(colorText).Render(queryText[:end])
 			queryText = queryText[end:]
 		}
+		rows = append(rows, queryLines)
 	}
 
-	return b.String()
+	content := joinWithDividers(rows, innerW)
+	box := dashBox(innerW).Render(content)
+	return "\n" + dashSectionTitle("SESSION DETAIL") + "\n" + box + "\n"
 }
 
 func sortSessions(activities []model.Activity, by string) {
