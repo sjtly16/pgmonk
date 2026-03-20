@@ -17,6 +17,8 @@ func (m Model) renderTables() string {
 	}
 
 	var b strings.Builder
+	w := m.contentWidth()
+	innerW := w - 7
 
 	// Sort the tables.
 	tables := make([]model.TableStat, len(m.snapshot.Tables))
@@ -32,18 +34,18 @@ func (m Model) renderTables() string {
 			needsVacuum++
 		}
 	}
-	b.WriteString(fmt.Sprintf("  Tables: %d │ Total dead tuples: %s │ Needs vacuum: %s\n",
+	summaryLine := fmt.Sprintf("Tables: %d  │  Total dead tuples: %s  │  Needs vacuum: %s",
 		len(tables),
 		styleValue.Render(formatCallCount(totalDead)),
 		vacuumCountStyle(needsVacuum).Render(fmt.Sprintf("%d", needsVacuum)),
-	))
-
-	// Sort indicator.
-	sortLabel := fmt.Sprintf("  Sorted by: %s (press 's' to cycle)", m.tableSortBy)
-	b.WriteString(lipgloss.NewStyle().Foreground(colorAccent).Render(sortLabel) + "\n\n")
+	)
+	sortLine := lipgloss.NewStyle().Foreground(colorAccent).Render(
+		fmt.Sprintf("Sorted by: %s (press 's' to cycle)", m.tableSortBy))
+	summaryContent := summaryLine + "\n" + kvDivider(innerW) + "\n" + sortLine
+	b.WriteString(dashBox(innerW).Render(summaryContent))
+	b.WriteString("\n")
 
 	// Dynamic column widths based on terminal width.
-	w := m.contentWidth()
 	showLive := w > 90
 	showIdxScan := w > 100
 	showVacuum := w > 115
@@ -64,8 +66,7 @@ func (m Model) renderTables() string {
 	if showVacuum {
 		hdr += " Last Vacuum"
 	}
-	header := hdr
-	b.WriteString(styleHeader.Render(header))
+	b.WriteString(styleHeader.Render(hdr))
 	b.WriteString("\n")
 	b.WriteString(m.renderDivider())
 	b.WriteString("\n")

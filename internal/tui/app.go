@@ -42,13 +42,12 @@ type Model struct {
 	tableSortBy    string
 	clientSortBy   string
 	sessionSortBy  string
-	expandedClient  string
-	hasStatStmts    bool
-	showHelpModal   bool
-	showDetail      bool
-	scrollOffset    int
-	selectedRow     int
-	dashboardScroll int
+	expandedClient string
+	hasStatStmts   bool
+	showHelpModal  bool
+	showDetail     bool
+	scrollOffset   int
+	selectedRow    int
 }
 
 // NewModel creates a new TUI model.
@@ -139,7 +138,6 @@ func (m *Model) resetScroll() {
 	m.scrollOffset = 0
 	m.selectedRow = 0
 	m.showDetail = false
-	m.dashboardScroll = 0
 }
 
 // Init implements tea.Model.
@@ -291,8 +289,6 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Scroll and navigate with j/k or arrow keys.
 		case "j", "down":
 			switch m.currentView {
-			case ViewDashboard:
-				m.dashboardScroll += 3
 			case ViewSessions, ViewQueries, ViewTables, ViewLocks:
 				m.selectedRow++
 				m.clampScroll()
@@ -303,11 +299,6 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		case "k", "up":
 			switch m.currentView {
-			case ViewDashboard:
-				m.dashboardScroll -= 3
-				if m.dashboardScroll < 0 {
-					m.dashboardScroll = 0
-				}
 			case ViewSessions, ViewQueries, ViewTables, ViewLocks:
 				m.selectedRow--
 				m.clampScroll()
@@ -317,15 +308,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			}
 		case "g":
-			if m.currentView == ViewDashboard {
-				m.dashboardScroll = 0
-			}
 			m.selectedRow = 0
 			m.clampScroll()
 		case "G":
-			if m.currentView == ViewDashboard {
-				m.dashboardScroll = 100 // scroll to bottom
-			}
 			m.selectedRow = m.dataLen() - 1
 			m.clampScroll()
 		}
@@ -399,13 +384,6 @@ func (m Model) View() string {
 
 	contentLines := strings.Split(content, "\n")
 
-	// Apply dashboard scrolling.
-	if m.currentView == ViewDashboard && m.dashboardScroll > 0 {
-		if m.dashboardScroll < len(contentLines) {
-			contentLines = contentLines[m.dashboardScroll:]
-		}
-	}
-
 	// Truncate to available height.
 	if len(contentLines) > availableHeight {
 		contentLines = contentLines[:availableHeight]
@@ -432,45 +410,72 @@ func (m Model) View() string {
 
 // renderHeader renders the top header bar with server info.
 func (m Model) renderHeader() string {
-	logo := styleLogo.Render(" pg-monk")
-	sep := lipgloss.NewStyle().Foreground(lipgloss.Color("#374151")).Render(" │ ")
+	logo := styleLogo.Render("pg-monk")
+	dot := lipgloss.NewStyle().Foreground(colorMuted).Render(" · ")
 	dbName := styleValue.Render(m.snapshot.Overview.DatabaseName)
-	version := lipgloss.NewStyle().Foreground(colorMuted).Render(truncate(m.serverInfo.Version, 40))
+
+	// Extract short version string (e.g. "PostgreSQL 14.19" from longer string).
+	ver := m.serverInfo.Version
+	if idx := strings.Index(ver, " on "); idx > 0 {
+		ver = ver[:idx]
+	}
+	version := lipgloss.NewStyle().Foreground(colorMuted).Render(ver)
 	timestamp := lipgloss.NewStyle().Foreground(colorMuted).Render(m.snapshot.CollectedAt.Format("15:04:05"))
-	return logo + sep + dbName + sep + version + sep + timestamp
+
+	left := logo + "  " + dbName + dot + version
+	gap := m.width - lipgloss.Width(left) - lipgloss.Width(timestamp) - 1
+	if gap < 1 {
+		gap = 1
+	}
+	return left + strings.Repeat(" ", gap) + timestamp
 }
 
 // renderTabs renders the navigation tab bar.
 func (m Model) renderTabs() string {
+	// Calculate even tab width based on terminal width.
+	tabCount := len(viewNames)
+	tabW := 0
+	if m.width > 0 && tabCount > 0 {
+		tabW = m.width / tabCount
+	}
+	if tabW < 12 {
+		tabW = 12
+	}
+
 	var tabs []string
-	sep := lipgloss.NewStyle().Foreground(lipgloss.Color("#374151")).Render("│")
 	for i, name := range viewNames {
-		// Skip Queries if not available.
+		label := fmt.Sprintf("%d %s", i+1, name)
 		if View(i) == ViewQueries && !m.hasStatStmts {
-			label := fmt.Sprintf(" %d %s ", i+1, name)
-			tabs = append(tabs, lipgloss.NewStyle().Foreground(lipgloss.Color("#374151")).Render(label))
-			if i < len(viewNames)-1 {
-				tabs = append(tabs, sep)
-			}
+			tabs = append(tabs, lipgloss.NewStyle().
+				Foreground(lipgloss.Color("#374151")).
+				Width(tabW).
+				Align(lipgloss.Center).
+				Render(label))
 			continue
 		}
-		label := fmt.Sprintf(" %d %s ", i+1, name)
 		if View(i) == m.currentView {
-			tabs = append(tabs, styleTabActive.Render(label))
+			tabs = append(tabs, lipgloss.NewStyle().
+				Bold(true).
+				Foreground(lipgloss.Color("#FFFFFF")).
+				Background(lipgloss.Color("#1E293B")).
+				Width(tabW).
+				Align(lipgloss.Center).
+				Render(label))
 		} else {
-			tabs = append(tabs, styleTabInactive.Render(label))
-		}
-		if i < len(viewNames)-1 {
-			tabs = append(tabs, sep)
+			tabs = append(tabs, lipgloss.NewStyle().
+				Foreground(colorMuted).
+				Width(tabW).
+				Align(lipgloss.Center).
+				Render(label))
 		}
 	}
-	divW := m.contentWidth()
-	if m.width > 0 && divW > m.width-2 {
-		divW = m.width - 2
+	divW := m.width - 1
+	if divW < 0 {
+		divW = 0
 	}
 	divider := lipgloss.NewStyle().Foreground(lipgloss.Color("#374151")).
 		Render(strings.Repeat("─", divW))
-	return " " + lipgloss.JoinHorizontal(lipgloss.Top, tabs...) + "\n" + " " + divider
+	return lipgloss.JoinHorizontal(lipgloss.Top, tabs...) + "\n" + divider
 }
 
 // renderHelp renders the footer help text.
@@ -487,8 +492,6 @@ func (m Model) renderHelp() string {
 		key("q", "quit"),
 	}
 	switch m.currentView {
-	case ViewDashboard:
-		parts = append(parts, key("j/k", "scroll"))
 	case ViewSessions, ViewTables:
 		parts = append(parts, key("j/k", "scroll"), key("s", "sort"))
 	case ViewQueries:
@@ -522,13 +525,13 @@ func (m Model) renderScrollInfo(total int) string {
 		fmt.Sprintf("  rows %d-%d of %d", from, to, total))
 }
 
-// renderDivider renders a horizontal divider line.
+// renderDivider renders a horizontal divider line matching the box border color.
 func (m Model) renderDivider() string {
 	w := m.contentWidth()
 	if m.width > 0 && w > m.width-2 {
 		w = m.width - 2
 	}
-	return lipgloss.NewStyle().Foreground(colorMuted).Render("  " + strings.Repeat("─", w))
+	return lipgloss.NewStyle().Foreground(lipgloss.Color("#4B5563")).Render("  " + strings.Repeat("─", w))
 }
 
 // --- Help Modal ---
@@ -639,31 +642,6 @@ func formatDuration(ms float64) string {
 	default:
 		return fmt.Sprintf("%.2fms", ms)
 	}
-}
-
-func connectionBar(current, max int, width int) string {
-	if max == 0 {
-		return ""
-	}
-	ratio := float64(current) / float64(max)
-	filled := int(ratio * float64(width))
-	if filled > width {
-		filled = width
-	}
-
-	var barColor lipgloss.Color
-	switch {
-	case ratio > 0.85:
-		barColor = lipgloss.Color(colorDanger)
-	case ratio > 0.60:
-		barColor = lipgloss.Color(colorWarning)
-	default:
-		barColor = lipgloss.Color(colorSuccess)
-	}
-
-	bar := lipgloss.NewStyle().Foreground(barColor).Render(strings.Repeat("█", filled))
-	empty := lipgloss.NewStyle().Foreground(colorMuted).Render(strings.Repeat("░", width-filled))
-	return bar + empty
 }
 
 // nextClient returns the client address after the given one.
