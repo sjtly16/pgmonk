@@ -16,13 +16,6 @@ type Config struct {
 	// String version for JSON marshaling.
 	IntervalStr string `json:"interval,omitempty"`
 
-	// pgmonk.dev API key for AI-powered insights.
-	// Get yours at https://pgmonk.dev/account/api-keys
-	APIKey string `json:"api_key,omitempty"`
-
-	// pgmonk.dev API endpoint (default: https://api.pgmonk.dev).
-	APIEndpoint string `json:"api_endpoint,omitempty"`
-
 	// Analyzer thresholds.
 	Thresholds Thresholds `json:"thresholds"`
 }
@@ -85,7 +78,6 @@ func DefaultConfig() *Config {
 	return &Config{
 		Interval:    2 * time.Second,
 		IntervalStr: "2s",
-		APIEndpoint: "https://api.pgmonk.dev",
 		Thresholds: Thresholds{
 			CacheHitWarn:              99.0,
 			CacheHitCritical:          95.0,

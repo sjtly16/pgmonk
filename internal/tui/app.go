@@ -1,16 +1,12 @@
 package tui
 
 import (
-	"context"
-	"crypto/sha256"
 	"fmt"
 	"strings"
-	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/shashank/pgmonk/internal/model"
-	"github.com/shashank/pgmonk/internal/pgapi"
 )
 
 // View represents a TUI screen tab.
@@ -33,38 +29,6 @@ type SnapshotMsg struct {
 	Snapshot *model.Snapshot
 }
 
-// AIInsightsMsg is sent when AI analysis completes or fails.
-type AIInsightsMsg struct {
-	Insights []AIInsight
-	Usage    AIUsage
-	Error    string
-}
-
-// AIInsight is an AI-generated database insight.
-type AIInsight struct {
-	Severity    string
-	Category    string
-	Title       string
-	Description string
-	Suggestion  string
-}
-
-// AIUsage holds the user's API usage for today.
-type AIUsage struct {
-	AnalysesToday int
-	Limit         int
-	Tier          string
-}
-
-// APIConfig holds the pgmonk.dev API configuration for the TUI.
-type APIConfig struct {
-	APIKey        string
-	APIEndpoint   string
-	DBFingerprint string
-	DBName        string
-	PGVersion     int
-}
-
 // Model is the main Bubble Tea application model.
 type Model struct {
 	snapshot       *model.Snapshot
@@ -85,22 +49,10 @@ type Model struct {
 	scrollOffset   int
 	selectedRow    int
 
-	// pgmonk.dev API integration.
-	apiKey        string
-	apiEndpoint   string
-	dbFingerprint string
-	dbName        string
-	pgVersion     int
-	aiInsights    []AIInsight
-	aiUsage       AIUsage
-	aiLoading     bool
-	aiError       string
-	aiLastUpdated time.Time
-	snapshotCount int // counts snapshots to throttle auto-refresh
 }
 
 // NewModel creates a new TUI model.
-func NewModel(serverInfo model.ServerInfo, apiCfg APIConfig) Model {
+func NewModel(serverInfo model.ServerInfo) Model {
 	return Model{
 		serverInfo:    serverInfo,
 		currentView:   ViewDashboard,
@@ -109,57 +61,6 @@ func NewModel(serverInfo model.ServerInfo, apiCfg APIConfig) Model {
 		clientSortBy:  "connections",
 		sessionSortBy: "state",
 		hasStatStmts:  serverInfo.HasStatStatements,
-		apiKey:        apiCfg.APIKey,
-		apiEndpoint:   apiCfg.APIEndpoint,
-		dbFingerprint: apiCfg.DBFingerprint,
-		dbName:        apiCfg.DBName,
-		pgVersion:     apiCfg.PGVersion,
-	}
-}
-
-// ComputeFingerprint returns a short hex fingerprint for a DSN string.
-func ComputeFingerprint(dsn string) string {
-	h := sha256.Sum256([]byte(dsn))
-	return fmt.Sprintf("%x", h[:16])
-}
-
-// fetchAIInsights returns a Bubble Tea command that calls the pgmonk.dev API.
-func (m Model) fetchAIInsights() tea.Cmd {
-	snap := m.snapshot
-	apiKey := m.apiKey
-	apiEndpoint := m.apiEndpoint
-	fingerprint := m.dbFingerprint
-	dbName := m.dbName
-	pgVersion := m.pgVersion
-
-	return func() tea.Msg {
-		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-		defer cancel()
-
-		result, err := pgapi.Analyze(ctx, apiKey, apiEndpoint, fingerprint, dbName, pgVersion, snap)
-		if err != nil {
-			return AIInsightsMsg{Error: err.Error()}
-		}
-
-		insights := make([]AIInsight, len(result.Insights))
-		for i, ins := range result.Insights {
-			insights[i] = AIInsight{
-				Severity:    ins.Severity,
-				Category:    ins.Category,
-				Title:       ins.Title,
-				Description: ins.Description,
-				Suggestion:  ins.Suggestion,
-			}
-		}
-
-		return AIInsightsMsg{
-			Insights: insights,
-			Usage: AIUsage{
-				AnalysesToday: result.Usage.AnalysesToday,
-				Limit:         result.Usage.Limit,
-				Tier:          result.Usage.Tier,
-			},
-		}
 	}
 }
 
@@ -314,14 +215,6 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			m.currentView = View(prev)
 			m.resetScroll()
-		// Refresh AI insights manually.
-		case "r":
-			if m.currentView == ViewInsights && m.apiKey != "" && !m.aiLoading && m.snapshot != nil {
-				m.aiLoading = true
-				m.aiError = ""
-				return m, m.fetchAIInsights()
-			}
-
 		// Sort keys for specific views.
 		case "s":
 			switch m.currentView {
@@ -423,34 +316,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.clampScroll()
 		}
 
-	case AIInsightsMsg:
-		m.aiLoading = false
-		m.aiError = msg.Error
-		if msg.Error == "" {
-			m.aiInsights = msg.Insights
-			m.aiUsage = msg.Usage
-			m.aiLastUpdated = time.Now()
-		}
-
 	case SnapshotMsg:
 		m.prevSnapshot = m.snapshot
 		m.snapshot = msg.Snapshot
 		m.ready = true
-		m.snapshotCount++
 		m.clampScroll()
-
-		// Auto-trigger AI analysis: on first snapshot and every ~60 seconds.
-		if m.apiKey != "" && !m.aiLoading {
-			if m.aiLastUpdated.IsZero() || time.Since(m.aiLastUpdated) > 60*time.Second {
-				m.aiLoading = true
-				m.aiError = ""
-				// Update dbName from snapshot if not set yet.
-				if m.dbName == "" && m.snapshot != nil {
-					m.dbName = m.snapshot.Overview.DatabaseName
-				}
-				return m, m.fetchAIInsights()
-			}
-		}
 
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
@@ -631,10 +501,6 @@ func (m Model) renderHelp() string {
 		parts = append(parts, key("j/k", "scroll"))
 	case ViewClients:
 		parts = append(parts, key("s", "sort"), key("Enter", "expand"), key("Esc", "back"))
-	case ViewInsights:
-		if m.apiKey != "" {
-			parts = append(parts, key("r", "refresh AI"))
-		}
 	}
 	if m.showDetail {
 		parts = append(parts, key("Esc", "close"))
