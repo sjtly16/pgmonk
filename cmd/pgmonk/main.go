@@ -161,7 +161,8 @@ func buildDSN(args []string) string {
 
 // runDashboard is the main interactive TUI command.
 func runDashboard(cmd *cobra.Command, args []string) error {
-	if err := loadConfig(); err != nil {
+	cfg, err := loadConfig()
+	if err != nil {
 		return err
 	}
 
@@ -185,11 +186,22 @@ func runDashboard(cmd *cobra.Command, args []string) error {
 	} else {
 		fmt.Println("  ⚠ pg_stat_statements not found (query stats disabled)")
 	}
+	if cfg.APIKey != "" {
+		fmt.Println("  ✓ pgmonk.dev API key detected — AI insights enabled")
+	}
 	fmt.Println("  Starting dashboard...")
 	fmt.Println()
 
+	// Build API config for AI insights.
+	apiCfg := tui.APIConfig{
+		APIKey:        cfg.APIKey,
+		APIEndpoint:   cfg.APIEndpoint,
+		DBFingerprint: tui.ComputeFingerprint(dsn),
+		PGVersion:     info.VersionNum,
+	}
+
 	// Create Bubble Tea program.
-	model := tui.NewModel(info)
+	model := tui.NewModel(info, apiCfg)
 	p := tea.NewProgram(model, tea.WithAltScreen())
 
 	// Start the collector in a background goroutine.
@@ -275,7 +287,7 @@ func runSnapshot(cmd *cobra.Command, args []string) error {
 
 // runDiagnose performs a health check and prints insights.
 func runDiagnose(cmd *cobra.Command, args []string) error {
-	if err := loadConfig(); err != nil {
+	if _, err := loadConfig(); err != nil {
 		return err
 	}
 
@@ -401,11 +413,11 @@ func formatNumberSimple(n int64) string {
 	return fmt.Sprintf("%d", n)
 }
 
-// loadConfig loads config and applies thresholds to the analyzer.
-func loadConfig() error {
+// loadConfig loads config, applies thresholds to the analyzer, and returns the config.
+func loadConfig() (*config.Config, error) {
 	cfg, err := config.Load(flagConfig)
 	if err != nil {
-		return fmt.Errorf("config: %w", err)
+		return nil, fmt.Errorf("config: %w", err)
 	}
 
 	// Apply interval from config if not overridden by flag.
@@ -465,7 +477,7 @@ func loadConfig() error {
 		at.LongTxCritical = t.LongTxCritical
 	}
 	analyzer.SetThresholds(at)
-	return nil
+	return cfg, nil
 }
 
 // runInitConfig writes a default config file.

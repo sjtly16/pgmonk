@@ -35,7 +35,7 @@ func testSnapshot() *model.Snapshot {
 }
 
 func TestNewModel(t *testing.T) {
-	m := tui.NewModel(testServerInfo())
+	m := tui.NewModel(testServerInfo(), tui.APIConfig{})
 	view := m.View()
 	if !strings.Contains(view, "Connecting") {
 		t.Error("expected loading message before first snapshot")
@@ -43,7 +43,7 @@ func TestNewModel(t *testing.T) {
 }
 
 func TestModel_SnapshotUpdate(t *testing.T) {
-	m := tui.NewModel(testServerInfo())
+	m := tui.NewModel(testServerInfo(), tui.APIConfig{})
 	msg := tui.SnapshotMsg{Snapshot: testSnapshot()}
 	updated, _ := m.Update(msg)
 	view := updated.View()
@@ -53,7 +53,7 @@ func TestModel_SnapshotUpdate(t *testing.T) {
 }
 
 func TestModel_TabNavigation(t *testing.T) {
-	m := tui.NewModel(testServerInfo())
+	m := tui.NewModel(testServerInfo(), tui.APIConfig{})
 	m.Update(tui.SnapshotMsg{Snapshot: testSnapshot()})
 
 	// Navigate via number keys
@@ -67,7 +67,7 @@ func TestModel_TabNavigation(t *testing.T) {
 }
 
 func TestModel_HelpModal(t *testing.T) {
-	m := tui.NewModel(testServerInfo())
+	m := tui.NewModel(testServerInfo(), tui.APIConfig{})
 	// Must send snapshot first so model is ready.
 	m2, _ := m.Update(tui.SnapshotMsg{Snapshot: testSnapshot()})
 	// Then trigger help.
@@ -85,7 +85,7 @@ func TestModel_HelpModal(t *testing.T) {
 }
 
 func TestModel_WindowResize(t *testing.T) {
-	m := tui.NewModel(testServerInfo())
+	m := tui.NewModel(testServerInfo(), tui.APIConfig{})
 	m.Update(tui.SnapshotMsg{Snapshot: testSnapshot()})
 	updated, _ := m.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
 	if updated.View() == "" {
@@ -94,7 +94,7 @@ func TestModel_WindowResize(t *testing.T) {
 }
 
 func TestModel_Quit(t *testing.T) {
-	m := tui.NewModel(testServerInfo())
+	m := tui.NewModel(testServerInfo(), tui.APIConfig{})
 	_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("q")})
 	if cmd == nil {
 		t.Error("expected quit command")
