@@ -1,0 +1,1947 @@
+{
+ "major": 18,
+ "source": "postgres/postgres REL_18_STABLE: doc/src/sgml/{monitoring.sgml,pgstatstatements.sgml}",
+ "views": {
+  "pg_stat_activity": [
+   {
+    "name": "datid",
+    "type": "oid",
+    "desc": "OID of the database this backend is connected to"
+   },
+   {
+    "name": "datname",
+    "type": "name",
+    "desc": "Name of the database this backend is connected to"
+   },
+   {
+    "name": "pid",
+    "type": "integer",
+    "desc": "Process ID of this backend"
+   },
+   {
+    "name": "leader_pid",
+    "type": "integer",
+    "desc": "Process ID of the parallel group leader if this process is a parallel query worker, or process ID of the leader apply worker if this process is a parallel apply worker."
+   },
+   {
+    "name": "usesysid",
+    "type": "oid",
+    "desc": "OID of the user logged into this backend"
+   },
+   {
+    "name": "usename",
+    "type": "name",
+    "desc": "Name of the user logged into this backend"
+   },
+   {
+    "name": "application_name",
+    "type": "text",
+    "desc": "Name of the application that is connected to this backend"
+   },
+   {
+    "name": "client_addr",
+    "type": "inet",
+    "desc": "IP address of the client connected to this backend."
+   },
+   {
+    "name": "client_hostname",
+    "type": "text",
+    "desc": "Host name of the connected client, as reported by a reverse DNS lookup of client_addr."
+   },
+   {
+    "name": "client_port",
+    "type": "integer",
+    "desc": "TCP port number that the client is using for communication with this backend, or -1 if a Unix socket is used."
+   },
+   {
+    "name": "backend_start",
+    "type": "timestamp with time zone",
+    "desc": "Time when this process was started."
+   },
+   {
+    "name": "xact_start",
+    "type": "timestamp with time zone",
+    "desc": "Time when this process' current transaction was started, or null if no transaction is active."
+   },
+   {
+    "name": "query_start",
+    "type": "timestamp with time zone",
+    "desc": "Time when the currently active query was started, or if state is not active, when the last query was started"
+   },
+   {
+    "name": "state_change",
+    "type": "timestamp with time zone",
+    "desc": "Time when the state was last changed"
+   },
+   {
+    "name": "wait_event_type",
+    "type": "text",
+    "desc": "The type of event for which the backend is waiting, if any; otherwise NULL."
+   },
+   {
+    "name": "wait_event",
+    "type": "text",
+    "desc": "Wait event name if backend is currently waiting, otherwise NULL."
+   },
+   {
+    "name": "state",
+    "type": "text",
+    "desc": "disabled: This state is reported if is disabled in this backend."
+   },
+   {
+    "name": "backend_xid",
+    "type": "xid",
+    "desc": "Top-level transaction identifier of this backend, if any; see ."
+   },
+   {
+    "name": "backend_xmin",
+    "type": "xid",
+    "desc": "The current backend's xmin horizon."
+   },
+   {
+    "name": "query_id",
+    "type": "bigint",
+    "desc": "Identifier of this backend's most recent query."
+   },
+   {
+    "name": "query",
+    "type": "text",
+    "desc": "Text of this backend's most recent query."
+   },
+   {
+    "name": "backend_type",
+    "type": "text",
+    "desc": "Type of current backend."
+   }
+  ],
+  "pg_stat_all_indexes": [
+   {
+    "name": "relid",
+    "type": "oid",
+    "desc": "OID of the table for this index"
+   },
+   {
+    "name": "indexrelid",
+    "type": "oid",
+    "desc": "OID of this index"
+   },
+   {
+    "name": "schemaname",
+    "type": "name",
+    "desc": "Name of the schema this index is in"
+   },
+   {
+    "name": "relname",
+    "type": "name",
+    "desc": "Name of the table for this index"
+   },
+   {
+    "name": "indexrelname",
+    "type": "name",
+    "desc": "Name of this index"
+   },
+   {
+    "name": "idx_scan",
+    "type": "bigint",
+    "desc": "Number of index scans initiated on this index"
+   },
+   {
+    "name": "last_idx_scan",
+    "type": "timestamp with time zone",
+    "desc": "The time of the last scan on this index, based on the most recent transaction stop time"
+   },
+   {
+    "name": "idx_tup_read",
+    "type": "bigint",
+    "desc": "Number of index entries returned by scans on this index"
+   },
+   {
+    "name": "idx_tup_fetch",
+    "type": "bigint",
+    "desc": "Number of live table rows fetched by simple index scans using this index"
+   }
+  ],
+  "pg_stat_all_tables": [
+   {
+    "name": "relid",
+    "type": "oid",
+    "desc": "OID of a table"
+   },
+   {
+    "name": "schemaname",
+    "type": "name",
+    "desc": "Name of the schema that this table is in"
+   },
+   {
+    "name": "relname",
+    "type": "name",
+    "desc": "Name of this table"
+   },
+   {
+    "name": "seq_scan",
+    "type": "bigint",
+    "desc": "Number of sequential scans initiated on this table"
+   },
+   {
+    "name": "last_seq_scan",
+    "type": "timestamp with time zone",
+    "desc": "The time of the last sequential scan on this table, based on the most recent transaction stop time"
+   },
+   {
+    "name": "seq_tup_read",
+    "type": "bigint",
+    "desc": "Number of live rows fetched by sequential scans"
+   },
+   {
+    "name": "idx_scan",
+    "type": "bigint",
+    "desc": "Number of index scans initiated on this table"
+   },
+   {
+    "name": "last_idx_scan",
+    "type": "timestamp with time zone",
+    "desc": "The time of the last index scan on this table, based on the most recent transaction stop time"
+   },
+   {
+    "name": "idx_tup_fetch",
+    "type": "bigint",
+    "desc": "Number of live rows fetched by index scans"
+   },
+   {
+    "name": "n_tup_ins",
+    "type": "bigint",
+    "desc": "Total number of rows inserted"
+   },
+   {
+    "name": "n_tup_upd",
+    "type": "bigint",
+    "desc": "Total number of rows updated."
+   },
+   {
+    "name": "n_tup_del",
+    "type": "bigint",
+    "desc": "Total number of rows deleted"
+   },
+   {
+    "name": "n_tup_hot_upd",
+    "type": "bigint",
+    "desc": "Number of rows HOT updated."
+   },
+   {
+    "name": "n_tup_newpage_upd",
+    "type": "bigint",
+    "desc": "Number of rows updated where the successor version goes onto a new heap page, leaving behind an original version with a t_ctid field that points to a different heap page."
+   },
+   {
+    "name": "n_live_tup",
+    "type": "bigint",
+    "desc": "Estimated number of live rows"
+   },
+   {
+    "name": "n_dead_tup",
+    "type": "bigint",
+    "desc": "Estimated number of dead rows"
+   },
+   {
+    "name": "n_mod_since_analyze",
+    "type": "bigint",
+    "desc": "Estimated number of rows modified since this table was last analyzed"
+   },
+   {
+    "name": "n_ins_since_vacuum",
+    "type": "bigint",
+    "desc": "Estimated number of rows inserted since this table was last vacuumed (not counting VACUUM FULL)"
+   },
+   {
+    "name": "last_vacuum",
+    "type": "timestamp with time zone",
+    "desc": "Last time at which this table was manually vacuumed (not counting VACUUM FULL)"
+   },
+   {
+    "name": "last_autovacuum",
+    "type": "timestamp with time zone",
+    "desc": "Last time at which this table was vacuumed by the autovacuum daemon"
+   },
+   {
+    "name": "last_analyze",
+    "type": "timestamp with time zone",
+    "desc": "Last time at which this table was manually analyzed"
+   },
+   {
+    "name": "last_autoanalyze",
+    "type": "timestamp with time zone",
+    "desc": "Last time at which this table was analyzed by the autovacuum daemon"
+   },
+   {
+    "name": "vacuum_count",
+    "type": "bigint",
+    "desc": "Number of times this table has been manually vacuumed (not counting VACUUM FULL)"
+   },
+   {
+    "name": "autovacuum_count",
+    "type": "bigint",
+    "desc": "Number of times this table has been vacuumed by the autovacuum daemon"
+   },
+   {
+    "name": "analyze_count",
+    "type": "bigint",
+    "desc": "Number of times this table has been manually analyzed"
+   },
+   {
+    "name": "autoanalyze_count",
+    "type": "bigint",
+    "desc": "Number of times this table has been analyzed by the autovacuum daemon"
+   },
+   {
+    "name": "total_vacuum_time",
+    "type": "double precision",
+    "desc": "Total time this table has been manually vacuumed, in milliseconds (not counting VACUUM FULL)."
+   },
+   {
+    "name": "total_autovacuum_time",
+    "type": "double precision",
+    "desc": "Total time this table has been vacuumed by the autovacuum daemon, in milliseconds."
+   },
+   {
+    "name": "total_analyze_time",
+    "type": "double precision",
+    "desc": "Total time this table has been manually analyzed, in milliseconds."
+   },
+   {
+    "name": "total_autoanalyze_time",
+    "type": "double precision",
+    "desc": "Total time this table has been analyzed by the autovacuum daemon, in milliseconds."
+   }
+  ],
+  "pg_stat_archiver": [
+   {
+    "name": "archived_count",
+    "type": "bigint",
+    "desc": "Number of WAL files that have been successfully archived"
+   },
+   {
+    "name": "last_archived_wal",
+    "type": "text",
+    "desc": "Name of the WAL file most recently successfully archived"
+   },
+   {
+    "name": "last_archived_time",
+    "type": "timestamp with time zone",
+    "desc": "Time of the most recent successful archive operation"
+   },
+   {
+    "name": "failed_count",
+    "type": "bigint",
+    "desc": "Number of failed attempts for archiving WAL files"
+   },
+   {
+    "name": "last_failed_wal",
+    "type": "text",
+    "desc": "Name of the WAL file of the most recent failed archival operation"
+   },
+   {
+    "name": "last_failed_time",
+    "type": "timestamp with time zone",
+    "desc": "Time of the most recent failed archival operation"
+   },
+   {
+    "name": "stats_reset",
+    "type": "timestamp with time zone",
+    "desc": "Time at which these statistics were last reset"
+   }
+  ],
+  "pg_stat_bgwriter": [
+   {
+    "name": "buffers_clean",
+    "type": "bigint",
+    "desc": "Number of buffers written by the background writer"
+   },
+   {
+    "name": "maxwritten_clean",
+    "type": "bigint",
+    "desc": "Number of times the background writer stopped a cleaning scan because it had written too many buffers"
+   },
+   {
+    "name": "buffers_alloc",
+    "type": "bigint",
+    "desc": "Number of buffers allocated"
+   },
+   {
+    "name": "stats_reset",
+    "type": "timestamp with time zone",
+    "desc": "Time at which these statistics were last reset"
+   }
+  ],
+  "pg_stat_checkpointer": [
+   {
+    "name": "num_timed",
+    "type": "bigint",
+    "desc": "Number of scheduled checkpoints due to timeout"
+   },
+   {
+    "name": "num_requested",
+    "type": "bigint",
+    "desc": "Number of requested checkpoints"
+   },
+   {
+    "name": "num_done",
+    "type": "bigint",
+    "desc": "Number of checkpoints that have been performed"
+   },
+   {
+    "name": "restartpoints_timed",
+    "type": "bigint",
+    "desc": "Number of scheduled restartpoints due to timeout or after a failed attempt to perform it"
+   },
+   {
+    "name": "restartpoints_req",
+    "type": "bigint",
+    "desc": "Number of requested restartpoints"
+   },
+   {
+    "name": "restartpoints_done",
+    "type": "bigint",
+    "desc": "Number of restartpoints that have been performed"
+   },
+   {
+    "name": "write_time",
+    "type": "double precision",
+    "desc": "Total amount of time that has been spent in the portion of processing checkpoints and restartpoints where files are written to disk, in milliseconds"
+   },
+   {
+    "name": "sync_time",
+    "type": "double precision",
+    "desc": "Total amount of time that has been spent in the portion of processing checkpoints and restartpoints where files are synchronized to disk, in milliseconds"
+   },
+   {
+    "name": "buffers_written",
+    "type": "bigint",
+    "desc": "Number of shared buffers written during checkpoints and restartpoints"
+   },
+   {
+    "name": "slru_written",
+    "type": "bigint",
+    "desc": "Number of SLRU buffers written during checkpoints and restartpoints"
+   },
+   {
+    "name": "stats_reset",
+    "type": "timestamp with time zone",
+    "desc": "Time at which these statistics were last reset"
+   }
+  ],
+  "pg_stat_database": [
+   {
+    "name": "datid",
+    "type": "oid",
+    "desc": "OID of this database, or 0 for objects belonging to a shared relation"
+   },
+   {
+    "name": "datname",
+    "type": "name",
+    "desc": "Name of this database, or NULL for shared objects."
+   },
+   {
+    "name": "numbackends",
+    "type": "integer",
+    "desc": "Number of backends currently connected to this database, or NULL for shared objects."
+   },
+   {
+    "name": "xact_commit",
+    "type": "bigint",
+    "desc": "Number of transactions in this database that have been committed"
+   },
+   {
+    "name": "xact_rollback",
+    "type": "bigint",
+    "desc": "Number of transactions in this database that have been rolled back"
+   },
+   {
+    "name": "blks_read",
+    "type": "bigint",
+    "desc": "Number of disk blocks read in this database"
+   },
+   {
+    "name": "blks_hit",
+    "type": "bigint",
+    "desc": "Number of times disk blocks were found already in the buffer cache, so that a read was not necessary (this only includes hits in the PostgreSQL buffer cache, not the operating system's file system cache)"
+   },
+   {
+    "name": "tup_returned",
+    "type": "bigint",
+    "desc": "Number of live rows fetched by sequential scans and index entries returned by index scans in this database"
+   },
+   {
+    "name": "tup_fetched",
+    "type": "bigint",
+    "desc": "Number of live rows fetched by index scans in this database"
+   },
+   {
+    "name": "tup_inserted",
+    "type": "bigint",
+    "desc": "Number of rows inserted by queries in this database"
+   },
+   {
+    "name": "tup_updated",
+    "type": "bigint",
+    "desc": "Number of rows updated by queries in this database"
+   },
+   {
+    "name": "tup_deleted",
+    "type": "bigint",
+    "desc": "Number of rows deleted by queries in this database"
+   },
+   {
+    "name": "conflicts",
+    "type": "bigint",
+    "desc": "Number of queries canceled due to conflicts with recovery in this database."
+   },
+   {
+    "name": "temp_files",
+    "type": "bigint",
+    "desc": "Number of temporary files created by queries in this database."
+   },
+   {
+    "name": "temp_bytes",
+    "type": "bigint",
+    "desc": "Total amount of data written to temporary files by queries in this database."
+   },
+   {
+    "name": "deadlocks",
+    "type": "bigint",
+    "desc": "Number of deadlocks detected in this database"
+   },
+   {
+    "name": "checksum_failures",
+    "type": "bigint",
+    "desc": "Number of data page checksum failures detected in this database (or on a shared object), or NULL if data checksums are disabled."
+   },
+   {
+    "name": "checksum_last_failure",
+    "type": "timestamp with time zone",
+    "desc": "Time at which the last data page checksum failure was detected in this database (or on a shared object), or NULL if data checksums are disabled."
+   },
+   {
+    "name": "blk_read_time",
+    "type": "double precision",
+    "desc": "Time spent reading data file blocks by backends in this database, in milliseconds (if is enabled, otherwise zero)"
+   },
+   {
+    "name": "blk_write_time",
+    "type": "double precision",
+    "desc": "Time spent writing data file blocks by backends in this database, in milliseconds (if is enabled, otherwise zero)"
+   },
+   {
+    "name": "session_time",
+    "type": "double precision",
+    "desc": "Time spent by database sessions in this database, in milliseconds (note that statistics are only updated when the state of a session changes, so if sessions have been idle for a long time, this idle time won't be incl..."
+   },
+   {
+    "name": "active_time",
+    "type": "double precision",
+    "desc": "Time spent executing SQL statements in this database, in milliseconds (this corresponds to the states active and fastpath function call in pg_stat_activity)"
+   },
+   {
+    "name": "idle_in_transaction_time",
+    "type": "double precision",
+    "desc": "Time spent idling while in a transaction in this database, in milliseconds (this corresponds to the states idle in transaction and idle in transaction (aborted) in pg_stat_activity)"
+   },
+   {
+    "name": "sessions",
+    "type": "bigint",
+    "desc": "Total number of sessions established to this database"
+   },
+   {
+    "name": "sessions_abandoned",
+    "type": "bigint",
+    "desc": "Number of database sessions to this database that were terminated because connection to the client was lost"
+   },
+   {
+    "name": "sessions_fatal",
+    "type": "bigint",
+    "desc": "Number of database sessions to this database that were terminated by fatal errors"
+   },
+   {
+    "name": "sessions_killed",
+    "type": "bigint",
+    "desc": "Number of database sessions to this database that were terminated by operator intervention"
+   },
+   {
+    "name": "parallel_workers_to_launch",
+    "type": "bigint",
+    "desc": "Number of parallel workers planned to be launched by queries on this database"
+   },
+   {
+    "name": "parallel_workers_launched",
+    "type": "bigint",
+    "desc": "Number of parallel workers launched by queries on this database"
+   },
+   {
+    "name": "stats_reset",
+    "type": "timestamp with time zone",
+    "desc": "Time at which these statistics were last reset"
+   }
+  ],
+  "pg_stat_database_conflicts": [
+   {
+    "name": "datid",
+    "type": "oid",
+    "desc": "OID of a database"
+   },
+   {
+    "name": "datname",
+    "type": "name",
+    "desc": "Name of this database"
+   },
+   {
+    "name": "confl_tablespace",
+    "type": "bigint",
+    "desc": "Number of queries in this database that have been canceled due to dropped tablespaces"
+   },
+   {
+    "name": "confl_lock",
+    "type": "bigint",
+    "desc": "Number of queries in this database that have been canceled due to lock timeouts"
+   },
+   {
+    "name": "confl_snapshot",
+    "type": "bigint",
+    "desc": "Number of queries in this database that have been canceled due to old snapshots"
+   },
+   {
+    "name": "confl_bufferpin",
+    "type": "bigint",
+    "desc": "Number of queries in this database that have been canceled due to pinned buffers"
+   },
+   {
+    "name": "confl_deadlock",
+    "type": "bigint",
+    "desc": "Number of queries in this database that have been canceled due to deadlocks"
+   },
+   {
+    "name": "confl_active_logicalslot",
+    "type": "bigint",
+    "desc": "Number of uses of logical slots in this database that have been canceled due to old snapshots or too low a on the primary"
+   }
+  ],
+  "pg_stat_gssapi": [
+   {
+    "name": "pid",
+    "type": "integer",
+    "desc": "Process ID of a backend"
+   },
+   {
+    "name": "gss_authenticated",
+    "type": "boolean",
+    "desc": "True if GSSAPI authentication was used for this connection"
+   },
+   {
+    "name": "principal",
+    "type": "text",
+    "desc": "Principal used to authenticate this connection, or NULL if GSSAPI was not used to authenticate this connection."
+   },
+   {
+    "name": "encrypted",
+    "type": "boolean",
+    "desc": "True if GSSAPI encryption is in use on this connection"
+   },
+   {
+    "name": "credentials_delegated",
+    "type": "boolean",
+    "desc": "True if GSSAPI credentials were delegated on this connection."
+   }
+  ],
+  "pg_stat_io": [
+   {
+    "name": "backend_type",
+    "type": "text",
+    "desc": "Type of backend (e.g."
+   },
+   {
+    "name": "object",
+    "type": "text",
+    "desc": "wal: Write Ahead Logs."
+   },
+   {
+    "name": "context",
+    "type": "text",
+    "desc": "bulkwrite: Certain large write I/O operations done outside of shared buffers, such as COPY."
+   },
+   {
+    "name": "reads",
+    "type": "bigint",
+    "desc": "Number of read operations."
+   },
+   {
+    "name": "read_bytes",
+    "type": "numeric",
+    "desc": "The total size of read operations in bytes."
+   },
+   {
+    "name": "read_time",
+    "type": "double precision",
+    "desc": "Time spent waiting for read operations in milliseconds (if is enabled and object is not wal, or if is enabled and object is wal, otherwise zero)"
+   },
+   {
+    "name": "writes",
+    "type": "bigint",
+    "desc": "Number of write operations."
+   },
+   {
+    "name": "write_bytes",
+    "type": "numeric",
+    "desc": "The total size of write operations in bytes."
+   },
+   {
+    "name": "write_time",
+    "type": "double precision",
+    "desc": "Time spent waiting for write operations in milliseconds (if is enabled and object is not wal, or if is enabled and object is wal, otherwise zero)"
+   },
+   {
+    "name": "writebacks",
+    "type": "bigint",
+    "desc": "Number of units of size BLCKSZ (typically 8kB) which the process requested the kernel write out to permanent storage."
+   },
+   {
+    "name": "writeback_time",
+    "type": "double precision",
+    "desc": "Time spent waiting for writeback operations in milliseconds (if is enabled, otherwise zero)."
+   },
+   {
+    "name": "extends",
+    "type": "bigint",
+    "desc": "Number of relation extend operations."
+   },
+   {
+    "name": "extend_bytes",
+    "type": "numeric",
+    "desc": "The total size of relation extend operations in bytes."
+   },
+   {
+    "name": "extend_time",
+    "type": "double precision",
+    "desc": "Time spent waiting for extend operations in milliseconds."
+   },
+   {
+    "name": "hits",
+    "type": "bigint",
+    "desc": "The number of times a desired block was found in a shared buffer."
+   },
+   {
+    "name": "evictions",
+    "type": "bigint",
+    "desc": "In context normal, this counts the number of times a block was evicted from a buffer and replaced with another block."
+   },
+   {
+    "name": "reuses",
+    "type": "bigint",
+    "desc": "The number of times an existing buffer in a size-limited ring buffer outside of shared buffers was reused as part of an I/O operation in the bulkread, bulkwrite, or vacuum contexts."
+   },
+   {
+    "name": "fsyncs",
+    "type": "bigint",
+    "desc": "Number of fsync calls."
+   },
+   {
+    "name": "fsync_time",
+    "type": "double precision",
+    "desc": "Time spent waiting for fsync operations in milliseconds (if is enabled and object is not wal, or if is enabled and object is wal, otherwise zero)"
+   },
+   {
+    "name": "stats_reset",
+    "type": "timestamp with time zone",
+    "desc": "Time at which these statistics were last reset."
+   }
+  ],
+  "pg_stat_progress_analyze": [
+   {
+    "name": "pid",
+    "type": "integer",
+    "desc": "Process ID of backend."
+   },
+   {
+    "name": "datid",
+    "type": "oid",
+    "desc": "OID of the database to which this backend is connected."
+   },
+   {
+    "name": "datname",
+    "type": "name",
+    "desc": "Name of the database to which this backend is connected."
+   },
+   {
+    "name": "relid",
+    "type": "oid",
+    "desc": "OID of the table being analyzed."
+   },
+   {
+    "name": "phase",
+    "type": "text",
+    "desc": "Current processing phase."
+   },
+   {
+    "name": "sample_blks_total",
+    "type": "bigint",
+    "desc": "Total number of heap blocks that will be sampled."
+   },
+   {
+    "name": "sample_blks_scanned",
+    "type": "bigint",
+    "desc": "Number of heap blocks scanned."
+   },
+   {
+    "name": "ext_stats_total",
+    "type": "bigint",
+    "desc": "Number of extended statistics."
+   },
+   {
+    "name": "ext_stats_computed",
+    "type": "bigint",
+    "desc": "Number of extended statistics computed."
+   },
+   {
+    "name": "child_tables_total",
+    "type": "bigint",
+    "desc": "Number of child tables."
+   },
+   {
+    "name": "child_tables_done",
+    "type": "bigint",
+    "desc": "Number of child tables scanned."
+   },
+   {
+    "name": "current_child_table_relid",
+    "type": "oid",
+    "desc": "OID of the child table currently being scanned."
+   },
+   {
+    "name": "delay_time",
+    "type": "double precision",
+    "desc": "Total time spent sleeping due to cost-based delay (see ), in milliseconds (if is enabled, otherwise zero)."
+   }
+  ],
+  "pg_stat_progress_basebackup": [
+   {
+    "name": "pid",
+    "type": "integer",
+    "desc": "Process ID of a WAL sender process."
+   },
+   {
+    "name": "phase",
+    "type": "text",
+    "desc": "Current processing phase."
+   },
+   {
+    "name": "backup_total",
+    "type": "bigint",
+    "desc": "Total amount of data that will be streamed."
+   },
+   {
+    "name": "backup_streamed",
+    "type": "bigint",
+    "desc": "Amount of data streamed."
+   },
+   {
+    "name": "tablespaces_total",
+    "type": "bigint",
+    "desc": "Total number of tablespaces that will be streamed."
+   },
+   {
+    "name": "tablespaces_streamed",
+    "type": "bigint",
+    "desc": "Number of tablespaces streamed."
+   }
+  ],
+  "pg_stat_progress_cluster": [
+   {
+    "name": "pid",
+    "type": "integer",
+    "desc": "Process ID of backend."
+   },
+   {
+    "name": "datid",
+    "type": "oid",
+    "desc": "OID of the database to which this backend is connected."
+   },
+   {
+    "name": "datname",
+    "type": "name",
+    "desc": "Name of the database to which this backend is connected."
+   },
+   {
+    "name": "relid",
+    "type": "oid",
+    "desc": "OID of the table being clustered."
+   },
+   {
+    "name": "command",
+    "type": "text",
+    "desc": "The command that is running."
+   },
+   {
+    "name": "phase",
+    "type": "text",
+    "desc": "Current processing phase."
+   },
+   {
+    "name": "cluster_index_relid",
+    "type": "oid",
+    "desc": "If the table is being scanned using an index, this is the OID of the index being used; otherwise, it is zero."
+   },
+   {
+    "name": "heap_tuples_scanned",
+    "type": "bigint",
+    "desc": "Number of heap tuples scanned."
+   },
+   {
+    "name": "heap_tuples_written",
+    "type": "bigint",
+    "desc": "Number of heap tuples written."
+   },
+   {
+    "name": "heap_blks_total",
+    "type": "bigint",
+    "desc": "Total number of heap blocks in the table."
+   },
+   {
+    "name": "heap_blks_scanned",
+    "type": "bigint",
+    "desc": "Number of heap blocks scanned."
+   },
+   {
+    "name": "index_rebuild_count",
+    "type": "bigint",
+    "desc": "Number of indexes rebuilt."
+   }
+  ],
+  "pg_stat_progress_copy": [
+   {
+    "name": "pid",
+    "type": "integer",
+    "desc": "Process ID of backend."
+   },
+   {
+    "name": "datid",
+    "type": "oid",
+    "desc": "OID of the database to which this backend is connected."
+   },
+   {
+    "name": "datname",
+    "type": "name",
+    "desc": "Name of the database to which this backend is connected."
+   },
+   {
+    "name": "relid",
+    "type": "oid",
+    "desc": "OID of the table on which the COPY command is executed."
+   },
+   {
+    "name": "command",
+    "type": "text",
+    "desc": "The command that is running: COPY FROM, or COPY TO."
+   },
+   {
+    "name": "type",
+    "type": "text",
+    "desc": "The I/O type that the data is read from or written to: FILE, PROGRAM, PIPE (for COPY FROM STDIN and COPY TO STDOUT), or CALLBACK (used for example during the initial table synchronization in logical replication)."
+   },
+   {
+    "name": "bytes_processed",
+    "type": "bigint",
+    "desc": "Number of bytes already processed by COPY command."
+   },
+   {
+    "name": "bytes_total",
+    "type": "bigint",
+    "desc": "Size of source file for COPY FROM command in bytes."
+   },
+   {
+    "name": "tuples_processed",
+    "type": "bigint",
+    "desc": "Number of tuples already processed by COPY command."
+   },
+   {
+    "name": "tuples_excluded",
+    "type": "bigint",
+    "desc": "Number of tuples not processed because they were excluded by the WHERE clause of the COPY command."
+   },
+   {
+    "name": "tuples_skipped",
+    "type": "bigint",
+    "desc": "Number of tuples skipped because they contain malformed data."
+   }
+  ],
+  "pg_stat_progress_create_index": [
+   {
+    "name": "pid",
+    "type": "integer",
+    "desc": "Process ID of the backend creating indexes."
+   },
+   {
+    "name": "datid",
+    "type": "oid",
+    "desc": "OID of the database to which this backend is connected."
+   },
+   {
+    "name": "datname",
+    "type": "name",
+    "desc": "Name of the database to which this backend is connected."
+   },
+   {
+    "name": "relid",
+    "type": "oid",
+    "desc": "OID of the table on which the index is being created."
+   },
+   {
+    "name": "index_relid",
+    "type": "oid",
+    "desc": "OID of the index being created or reindexed."
+   },
+   {
+    "name": "command",
+    "type": "text",
+    "desc": "Specific command type: CREATE INDEX, CREATE INDEX CONCURRENTLY, REINDEX, or REINDEX CONCURRENTLY."
+   },
+   {
+    "name": "phase",
+    "type": "text",
+    "desc": "Current processing phase of index creation."
+   },
+   {
+    "name": "lockers_total",
+    "type": "bigint",
+    "desc": "Total number of lockers to wait for, when applicable."
+   },
+   {
+    "name": "lockers_done",
+    "type": "bigint",
+    "desc": "Number of lockers already waited for."
+   },
+   {
+    "name": "current_locker_pid",
+    "type": "bigint",
+    "desc": "Process ID of the locker currently being waited for."
+   },
+   {
+    "name": "blocks_total",
+    "type": "bigint",
+    "desc": "Total number of blocks to be processed in the current phase."
+   },
+   {
+    "name": "blocks_done",
+    "type": "bigint",
+    "desc": "Number of blocks already processed in the current phase."
+   },
+   {
+    "name": "tuples_total",
+    "type": "bigint",
+    "desc": "Total number of tuples to be processed in the current phase."
+   },
+   {
+    "name": "tuples_done",
+    "type": "bigint",
+    "desc": "Number of tuples already processed in the current phase."
+   },
+   {
+    "name": "partitions_total",
+    "type": "bigint",
+    "desc": "Total number of partitions on which the index is to be created or attached, including both direct and indirect partitions."
+   },
+   {
+    "name": "partitions_done",
+    "type": "bigint",
+    "desc": "Number of partitions on which the index has already been created or attached, including both direct and indirect partitions."
+   }
+  ],
+  "pg_stat_progress_vacuum": [
+   {
+    "name": "pid",
+    "type": "integer",
+    "desc": "Process ID of backend."
+   },
+   {
+    "name": "datid",
+    "type": "oid",
+    "desc": "OID of the database to which this backend is connected."
+   },
+   {
+    "name": "datname",
+    "type": "name",
+    "desc": "Name of the database to which this backend is connected."
+   },
+   {
+    "name": "relid",
+    "type": "oid",
+    "desc": "OID of the table being vacuumed."
+   },
+   {
+    "name": "phase",
+    "type": "text",
+    "desc": "Current processing phase of vacuum."
+   },
+   {
+    "name": "heap_blks_total",
+    "type": "bigint",
+    "desc": "Total number of heap blocks in the table."
+   },
+   {
+    "name": "heap_blks_scanned",
+    "type": "bigint",
+    "desc": "Number of heap blocks scanned."
+   },
+   {
+    "name": "heap_blks_vacuumed",
+    "type": "bigint",
+    "desc": "Number of heap blocks vacuumed."
+   },
+   {
+    "name": "index_vacuum_count",
+    "type": "bigint",
+    "desc": "Number of completed index vacuum cycles."
+   },
+   {
+    "name": "max_dead_tuple_bytes",
+    "type": "bigint",
+    "desc": "Amount of dead tuple data that we can store before needing to perform an index vacuum cycle, based on ."
+   },
+   {
+    "name": "dead_tuple_bytes",
+    "type": "bigint",
+    "desc": "Amount of dead tuple data collected since the last index vacuum cycle."
+   },
+   {
+    "name": "num_dead_item_ids",
+    "type": "bigint",
+    "desc": "Number of dead item identifiers collected since the last index vacuum cycle."
+   },
+   {
+    "name": "indexes_total",
+    "type": "bigint",
+    "desc": "Total number of indexes that will be vacuumed or cleaned up."
+   },
+   {
+    "name": "indexes_processed",
+    "type": "bigint",
+    "desc": "Number of indexes processed."
+   },
+   {
+    "name": "delay_time",
+    "type": "double precision",
+    "desc": "Total time spent sleeping due to cost-based delay (see ), in milliseconds (if is enabled, otherwise zero)."
+   }
+  ],
+  "pg_stat_recovery_prefetch": [
+   {
+    "name": "stats_reset",
+    "type": "timestamp with time zone",
+    "desc": "Time at which these statistics were last reset"
+   },
+   {
+    "name": "prefetch",
+    "type": "bigint",
+    "desc": "Number of blocks prefetched because they were not in the buffer pool"
+   },
+   {
+    "name": "hit",
+    "type": "bigint",
+    "desc": "Number of blocks not prefetched because they were already in the buffer pool"
+   },
+   {
+    "name": "skip_init",
+    "type": "bigint",
+    "desc": "Number of blocks not prefetched because they would be zero-initialized"
+   },
+   {
+    "name": "skip_new",
+    "type": "bigint",
+    "desc": "Number of blocks not prefetched because they didn't exist yet"
+   },
+   {
+    "name": "skip_fpw",
+    "type": "bigint",
+    "desc": "Number of blocks not prefetched because a full page image was included in the WAL"
+   },
+   {
+    "name": "skip_rep",
+    "type": "bigint",
+    "desc": "Number of blocks not prefetched because they were already recently prefetched"
+   },
+   {
+    "name": "wal_distance",
+    "type": "int",
+    "desc": "How many bytes ahead the prefetcher is looking"
+   },
+   {
+    "name": "block_distance",
+    "type": "int",
+    "desc": "How many blocks ahead the prefetcher is looking"
+   },
+   {
+    "name": "io_depth",
+    "type": "int",
+    "desc": "How many prefetches have been initiated but are not yet known to have completed"
+   }
+  ],
+  "pg_stat_replication": [
+   {
+    "name": "pid",
+    "type": "integer",
+    "desc": "Process ID of a WAL sender process"
+   },
+   {
+    "name": "usesysid",
+    "type": "oid",
+    "desc": "OID of the user logged into this WAL sender process"
+   },
+   {
+    "name": "usename",
+    "type": "name",
+    "desc": "Name of the user logged into this WAL sender process"
+   },
+   {
+    "name": "application_name",
+    "type": "text",
+    "desc": "Name of the application that is connected to this WAL sender"
+   },
+   {
+    "name": "client_addr",
+    "type": "inet",
+    "desc": "IP address of the client connected to this WAL sender."
+   },
+   {
+    "name": "client_hostname",
+    "type": "text",
+    "desc": "Host name of the connected client, as reported by a reverse DNS lookup of client_addr."
+   },
+   {
+    "name": "client_port",
+    "type": "integer",
+    "desc": "TCP port number that the client is using for communication with this WAL sender, or -1 if a Unix socket is used"
+   },
+   {
+    "name": "backend_start",
+    "type": "timestamp with time zone",
+    "desc": "Time when this process was started, i.e., when the client connected to this WAL sender"
+   },
+   {
+    "name": "backend_xmin",
+    "type": "xid",
+    "desc": "This standby's xmin horizon reported by ."
+   },
+   {
+    "name": "state",
+    "type": "text",
+    "desc": "stopping: This WAL sender is stopping."
+   },
+   {
+    "name": "sent_lsn",
+    "type": "pg_lsn",
+    "desc": "Last write-ahead log location sent on this connection"
+   },
+   {
+    "name": "write_lsn",
+    "type": "pg_lsn",
+    "desc": "Last write-ahead log location written to disk by this standby server"
+   },
+   {
+    "name": "flush_lsn",
+    "type": "pg_lsn",
+    "desc": "Last write-ahead log location flushed to disk by this standby server"
+   },
+   {
+    "name": "replay_lsn",
+    "type": "pg_lsn",
+    "desc": "Last write-ahead log location replayed into the database on this standby server"
+   },
+   {
+    "name": "write_lag",
+    "type": "interval",
+    "desc": "Time elapsed between flushing recent WAL locally and receiving notification that this standby server has written it (but not yet flushed it or applied it)."
+   },
+   {
+    "name": "flush_lag",
+    "type": "interval",
+    "desc": "Time elapsed between flushing recent WAL locally and receiving notification that this standby server has written and flushed it (but not yet applied it)."
+   },
+   {
+    "name": "replay_lag",
+    "type": "interval",
+    "desc": "Time elapsed between flushing recent WAL locally and receiving notification that this standby server has written, flushed and applied it."
+   },
+   {
+    "name": "sync_priority",
+    "type": "integer",
+    "desc": "Priority of this standby server for being chosen as the synchronous standby in a priority-based synchronous replication."
+   },
+   {
+    "name": "sync_state",
+    "type": "text",
+    "desc": "quorum: This standby server is considered as a candidate for quorum standbys."
+   },
+   {
+    "name": "reply_time",
+    "type": "timestamp with time zone",
+    "desc": "Send time of last reply message received from standby server"
+   }
+  ],
+  "pg_stat_replication_slots": [
+   {
+    "name": "slot_name",
+    "type": "text",
+    "desc": "A unique, cluster-wide identifier for the replication slot"
+   },
+   {
+    "name": "spill_txns",
+    "type": "bigint",
+    "desc": "Number of transactions spilled to disk once the memory used by logical decoding to decode changes from WAL has exceeded logical_decoding_work_mem."
+   },
+   {
+    "name": "spill_count",
+    "type": "bigint",
+    "desc": "Number of times transactions were spilled to disk while decoding changes from WAL for this slot."
+   },
+   {
+    "name": "spill_bytes",
+    "type": "bigint",
+    "desc": "Amount of decoded transaction data spilled to disk while performing decoding of changes from WAL for this slot."
+   },
+   {
+    "name": "stream_txns",
+    "type": "bigint",
+    "desc": "Number of in-progress transactions streamed to the decoding output plugin after the memory used by logical decoding to decode changes from WAL for this slot has exceeded logical_decoding_work_mem."
+   },
+   {
+    "name": "stream_count",
+    "type": "bigint",
+    "desc": "Number of times in-progress transactions were streamed to the decoding output plugin while decoding changes from WAL for this slot."
+   },
+   {
+    "name": "stream_bytes",
+    "type": "bigint",
+    "desc": "Amount of transaction data decoded for streaming in-progress transactions to the decoding output plugin while decoding changes from WAL for this slot."
+   },
+   {
+    "name": "total_txns",
+    "type": "bigint",
+    "desc": "Number of decoded transactions sent to the decoding output plugin for this slot."
+   },
+   {
+    "name": "total_bytes",
+    "type": "bigint",
+    "desc": "Amount of transaction data decoded for sending transactions to the decoding output plugin while decoding changes from WAL for this slot."
+   },
+   {
+    "name": "stats_reset",
+    "type": "timestamp with time zone",
+    "desc": "Time at which these statistics were last reset"
+   }
+  ],
+  "pg_stat_slru": [
+   {
+    "name": "name",
+    "type": "text",
+    "desc": "Name of the SLRU"
+   },
+   {
+    "name": "blks_zeroed",
+    "type": "bigint",
+    "desc": "Number of blocks zeroed during initializations"
+   },
+   {
+    "name": "blks_hit",
+    "type": "bigint",
+    "desc": "Number of times disk blocks were found already in the SLRU, so that a read was not necessary (this only includes hits in the SLRU, not the operating system's file system cache)"
+   },
+   {
+    "name": "blks_read",
+    "type": "bigint",
+    "desc": "Number of disk blocks read for this SLRU"
+   },
+   {
+    "name": "blks_written",
+    "type": "bigint",
+    "desc": "Number of disk blocks written for this SLRU"
+   },
+   {
+    "name": "blks_exists",
+    "type": "bigint",
+    "desc": "Number of blocks checked for existence for this SLRU"
+   },
+   {
+    "name": "flushes",
+    "type": "bigint",
+    "desc": "Number of flushes of dirty data for this SLRU"
+   },
+   {
+    "name": "truncates",
+    "type": "bigint",
+    "desc": "Number of truncates for this SLRU"
+   },
+   {
+    "name": "stats_reset",
+    "type": "timestamp with time zone",
+    "desc": "Time at which these statistics were last reset"
+   }
+  ],
+  "pg_stat_ssl": [
+   {
+    "name": "pid",
+    "type": "integer",
+    "desc": "Process ID of a backend or WAL sender process"
+   },
+   {
+    "name": "ssl",
+    "type": "boolean",
+    "desc": "True if SSL is used on this connection"
+   },
+   {
+    "name": "version",
+    "type": "text",
+    "desc": "Version of SSL in use, or NULL if SSL is not in use on this connection"
+   },
+   {
+    "name": "cipher",
+    "type": "text",
+    "desc": "Name of SSL cipher in use, or NULL if SSL is not in use on this connection"
+   },
+   {
+    "name": "bits",
+    "type": "integer",
+    "desc": "Number of bits in the encryption algorithm used, or NULL if SSL is not used on this connection"
+   },
+   {
+    "name": "client_dn",
+    "type": "text",
+    "desc": "Distinguished Name (DN) field from the client certificate used, or NULL if no client certificate was supplied or if SSL is not in use on this connection."
+   },
+   {
+    "name": "client_serial",
+    "type": "numeric",
+    "desc": "Serial number of the client certificate, or NULL if no client certificate was supplied or if SSL is not in use on this connection."
+   },
+   {
+    "name": "issuer_dn",
+    "type": "text",
+    "desc": "DN of the issuer of the client certificate, or NULL if no client certificate was supplied or if SSL is not in use on this connection."
+   }
+  ],
+  "pg_stat_statements": [
+   {
+    "name": "userid",
+    "type": "oid",
+    "desc": "OID of user who executed the statement"
+   },
+   {
+    "name": "dbid",
+    "type": "oid",
+    "desc": "OID of database in which the statement was executed"
+   },
+   {
+    "name": "toplevel",
+    "type": "bool",
+    "desc": "True if the query was executed as a top-level statement (always true if pg_stat_statements.track is set to top)"
+   },
+   {
+    "name": "queryid",
+    "type": "bigint",
+    "desc": "Hash code to identify identical normalized queries."
+   },
+   {
+    "name": "query",
+    "type": "text",
+    "desc": "Text of a representative statement"
+   },
+   {
+    "name": "plans",
+    "type": "bigint",
+    "desc": "Number of times the statement was planned (if pg_stat_statements.track_planning is enabled, otherwise zero)"
+   },
+   {
+    "name": "total_plan_time",
+    "type": "double precision",
+    "desc": "Total time spent planning the statement, in milliseconds (if pg_stat_statements.track_planning is enabled, otherwise zero)"
+   },
+   {
+    "name": "min_plan_time",
+    "type": "double precision",
+    "desc": "Minimum time spent planning the statement, in milliseconds."
+   },
+   {
+    "name": "max_plan_time",
+    "type": "double precision",
+    "desc": "Maximum time spent planning the statement, in milliseconds."
+   },
+   {
+    "name": "mean_plan_time",
+    "type": "double precision",
+    "desc": "Mean time spent planning the statement, in milliseconds (if pg_stat_statements.track_planning is enabled, otherwise zero)"
+   },
+   {
+    "name": "stddev_plan_time",
+    "type": "double precision",
+    "desc": "Population standard deviation of time spent planning the statement, in milliseconds (if pg_stat_statements.track_planning is enabled, otherwise zero)"
+   },
+   {
+    "name": "calls",
+    "type": "bigint",
+    "desc": "Number of times the statement was executed"
+   },
+   {
+    "name": "total_exec_time",
+    "type": "double precision",
+    "desc": "Total time spent executing the statement, in milliseconds"
+   },
+   {
+    "name": "min_exec_time",
+    "type": "double precision",
+    "desc": "Minimum time spent executing the statement, in milliseconds, this field will be zero until this statement is executed first time after reset performed by the pg_stat_statements_reset function with the minmax_only para..."
+   },
+   {
+    "name": "max_exec_time",
+    "type": "double precision",
+    "desc": "Maximum time spent executing the statement, in milliseconds, this field will be zero until this statement is executed first time after reset performed by the pg_stat_statements_reset function with the minmax_only para..."
+   },
+   {
+    "name": "mean_exec_time",
+    "type": "double precision",
+    "desc": "Mean time spent executing the statement, in milliseconds"
+   },
+   {
+    "name": "stddev_exec_time",
+    "type": "double precision",
+    "desc": "Population standard deviation of time spent executing the statement, in milliseconds"
+   },
+   {
+    "name": "rows",
+    "type": "bigint",
+    "desc": "Total number of rows retrieved or affected by the statement"
+   },
+   {
+    "name": "shared_blks_hit",
+    "type": "bigint",
+    "desc": "Total number of shared block cache hits by the statement"
+   },
+   {
+    "name": "shared_blks_read",
+    "type": "bigint",
+    "desc": "Total number of shared blocks read by the statement"
+   },
+   {
+    "name": "shared_blks_dirtied",
+    "type": "bigint",
+    "desc": "Total number of shared blocks dirtied by the statement"
+   },
+   {
+    "name": "shared_blks_written",
+    "type": "bigint",
+    "desc": "Total number of shared blocks written by the statement"
+   },
+   {
+    "name": "local_blks_hit",
+    "type": "bigint",
+    "desc": "Total number of local block cache hits by the statement"
+   },
+   {
+    "name": "local_blks_read",
+    "type": "bigint",
+    "desc": "Total number of local blocks read by the statement"
+   },
+   {
+    "name": "local_blks_dirtied",
+    "type": "bigint",
+    "desc": "Total number of local blocks dirtied by the statement"
+   },
+   {
+    "name": "local_blks_written",
+    "type": "bigint",
+    "desc": "Total number of local blocks written by the statement"
+   },
+   {
+    "name": "temp_blks_read",
+    "type": "bigint",
+    "desc": "Total number of temp blocks read by the statement"
+   },
+   {
+    "name": "temp_blks_written",
+    "type": "bigint",
+    "desc": "Total number of temp blocks written by the statement"
+   },
+   {
+    "name": "shared_blk_read_time",
+    "type": "double precision",
+    "desc": "Total time the statement spent reading shared blocks, in milliseconds (if is enabled, otherwise zero)"
+   },
+   {
+    "name": "shared_blk_write_time",
+    "type": "double precision",
+    "desc": "Total time the statement spent writing shared blocks, in milliseconds (if is enabled, otherwise zero)"
+   },
+   {
+    "name": "local_blk_read_time",
+    "type": "double precision",
+    "desc": "Total time the statement spent reading local blocks, in milliseconds (if is enabled, otherwise zero)"
+   },
+   {
+    "name": "local_blk_write_time",
+    "type": "double precision",
+    "desc": "Total time the statement spent writing local blocks, in milliseconds (if is enabled, otherwise zero)"
+   },
+   {
+    "name": "temp_blk_read_time",
+    "type": "double precision",
+    "desc": "Total time the statement spent reading temporary file blocks, in milliseconds (if is enabled, otherwise zero)"
+   },
+   {
+    "name": "temp_blk_write_time",
+    "type": "double precision",
+    "desc": "Total time the statement spent writing temporary file blocks, in milliseconds (if is enabled, otherwise zero)"
+   },
+   {
+    "name": "wal_records",
+    "type": "bigint",
+    "desc": "Total number of WAL records generated by the statement"
+   },
+   {
+    "name": "wal_fpi",
+    "type": "bigint",
+    "desc": "Total number of WAL full page images generated by the statement"
+   },
+   {
+    "name": "wal_bytes",
+    "type": "numeric",
+    "desc": "Total amount of WAL generated by the statement in bytes"
+   },
+   {
+    "name": "wal_buffers_full",
+    "type": "bigint",
+    "desc": "Number of times the WAL buffers became full"
+   },
+   {
+    "name": "jit_functions",
+    "type": "bigint",
+    "desc": "Total number of functions JIT-compiled by the statement"
+   },
+   {
+    "name": "jit_generation_time",
+    "type": "double precision",
+    "desc": "Total time spent by the statement on generating JIT code, in milliseconds"
+   },
+   {
+    "name": "jit_inlining_count",
+    "type": "bigint",
+    "desc": "Number of times functions have been inlined"
+   },
+   {
+    "name": "jit_inlining_time",
+    "type": "double precision",
+    "desc": "Total time spent by the statement on inlining functions, in milliseconds"
+   },
+   {
+    "name": "jit_optimization_count",
+    "type": "bigint",
+    "desc": "Number of times the statement has been optimized"
+   },
+   {
+    "name": "jit_optimization_time",
+    "type": "double precision",
+    "desc": "Total time spent by the statement on optimizing, in milliseconds"
+   },
+   {
+    "name": "jit_emission_count",
+    "type": "bigint",
+    "desc": "Number of times code has been emitted"
+   },
+   {
+    "name": "jit_emission_time",
+    "type": "double precision",
+    "desc": "Total time spent by the statement on emitting code, in milliseconds"
+   },
+   {
+    "name": "jit_deform_count",
+    "type": "bigint",
+    "desc": "Total number of tuple deform functions JIT-compiled by the statement"
+   },
+   {
+    "name": "jit_deform_time",
+    "type": "double precision",
+    "desc": "Total time spent by the statement on JIT-compiling tuple deform functions, in milliseconds"
+   },
+   {
+    "name": "parallel_workers_to_launch",
+    "type": "bigint",
+    "desc": "Number of parallel workers planned to be launched"
+   },
+   {
+    "name": "parallel_workers_launched",
+    "type": "bigint",
+    "desc": "Number of parallel workers actually launched"
+   },
+   {
+    "name": "stats_since",
+    "type": "timestamp with time zone",
+    "desc": "Time at which statistics gathering started for this statement"
+   },
+   {
+    "name": "minmax_stats_since",
+    "type": "timestamp with time zone",
+    "desc": "Time at which min/max statistics gathering started for this statement (fields min_plan_time, max_plan_time, min_exec_time and max_exec_time)"
+   }
+  ],
+  "pg_stat_user_functions": [
+   {
+    "name": "funcid",
+    "type": "oid",
+    "desc": "OID of a function"
+   },
+   {
+    "name": "schemaname",
+    "type": "name",
+    "desc": "Name of the schema this function is in"
+   },
+   {
+    "name": "funcname",
+    "type": "name",
+    "desc": "Name of this function"
+   },
+   {
+    "name": "calls",
+    "type": "bigint",
+    "desc": "Number of times this function has been called"
+   },
+   {
+    "name": "total_time",
+    "type": "double precision",
+    "desc": "Total time spent in this function and all other functions called by it, in milliseconds"
+   },
+   {
+    "name": "self_time",
+    "type": "double precision",
+    "desc": "Total time spent in this function itself, not including other functions called by it, in milliseconds"
+   }
+  ],
+  "pg_stat_wal": [
+   {
+    "name": "wal_records",
+    "type": "bigint",
+    "desc": "Total number of WAL records generated"
+   },
+   {
+    "name": "wal_fpi",
+    "type": "bigint",
+    "desc": "Total number of WAL full page images generated"
+   },
+   {
+    "name": "wal_bytes",
+    "type": "numeric",
+    "desc": "Total amount of WAL generated in bytes"
+   },
+   {
+    "name": "wal_buffers_full",
+    "type": "bigint",
+    "desc": "Number of times WAL data was written to disk because WAL buffers became full"
+   },
+   {
+    "name": "stats_reset",
+    "type": "timestamp with time zone",
+    "desc": "Time at which these statistics were last reset"
+   }
+  ],
+  "pg_stat_wal_receiver": [
+   {
+    "name": "pid",
+    "type": "integer",
+    "desc": "Process ID of the WAL receiver process"
+   },
+   {
+    "name": "status",
+    "type": "text",
+    "desc": "Activity status of the WAL receiver process"
+   },
+   {
+    "name": "receive_start_lsn",
+    "type": "pg_lsn",
+    "desc": "First write-ahead log location used when WAL receiver is started"
+   },
+   {
+    "name": "receive_start_tli",
+    "type": "integer",
+    "desc": "First timeline number used when WAL receiver is started"
+   },
+   {
+    "name": "written_lsn",
+    "type": "pg_lsn",
+    "desc": "Last write-ahead log location already received and written to disk, but not flushed."
+   },
+   {
+    "name": "flushed_lsn",
+    "type": "pg_lsn",
+    "desc": "Last write-ahead log location already received and flushed to disk, the initial value of this field being the first log location used when WAL receiver is started"
+   },
+   {
+    "name": "received_tli",
+    "type": "integer",
+    "desc": "Timeline number of last write-ahead log location received and flushed to disk, the initial value of this field being the timeline number of the first log location used when WAL receiver is started"
+   },
+   {
+    "name": "last_msg_send_time",
+    "type": "timestamp with time zone",
+    "desc": "Send time of last message received from origin WAL sender"
+   },
+   {
+    "name": "last_msg_receipt_time",
+    "type": "timestamp with time zone",
+    "desc": "Receipt time of last message received from origin WAL sender"
+   },
+   {
+    "name": "latest_end_lsn",
+    "type": "pg_lsn",
+    "desc": "Last write-ahead log location reported to origin WAL sender"
+   },
+   {
+    "name": "latest_end_time",
+    "type": "timestamp with time zone",
+    "desc": "Time of last write-ahead log location reported to origin WAL sender"
+   },
+   {
+    "name": "slot_name",
+    "type": "text",
+    "desc": "Replication slot name used by this WAL receiver"
+   },
+   {
+    "name": "sender_host",
+    "type": "text",
+    "desc": "Host of the PostgreSQL instance this WAL receiver is connected to."
+   },
+   {
+    "name": "sender_port",
+    "type": "integer",
+    "desc": "Port number of the PostgreSQL instance this WAL receiver is connected to."
+   },
+   {
+    "name": "conninfo",
+    "type": "text",
+    "desc": "Connection string used by this WAL receiver, with security-sensitive fields obfuscated."
+   }
+  ],
+  "pg_statio_all_indexes": [
+   {
+    "name": "relid",
+    "type": "oid",
+    "desc": "OID of the table for this index"
+   },
+   {
+    "name": "indexrelid",
+    "type": "oid",
+    "desc": "OID of this index"
+   },
+   {
+    "name": "schemaname",
+    "type": "name",
+    "desc": "Name of the schema this index is in"
+   },
+   {
+    "name": "relname",
+    "type": "name",
+    "desc": "Name of the table for this index"
+   },
+   {
+    "name": "indexrelname",
+    "type": "name",
+    "desc": "Name of this index"
+   },
+   {
+    "name": "idx_blks_read",
+    "type": "bigint",
+    "desc": "Number of disk blocks read from this index"
+   },
+   {
+    "name": "idx_blks_hit",
+    "type": "bigint",
+    "desc": "Number of buffer hits in this index"
+   }
+  ],
+  "pg_statio_all_sequences": [
+   {
+    "name": "relid",
+    "type": "oid",
+    "desc": "OID of a sequence"
+   },
+   {
+    "name": "schemaname",
+    "type": "name",
+    "desc": "Name of the schema this sequence is in"
+   },
+   {
+    "name": "relname",
+    "type": "name",
+    "desc": "Name of this sequence"
+   },
+   {
+    "name": "blks_read",
+    "type": "bigint",
+    "desc": "Number of disk blocks read from this sequence"
+   },
+   {
+    "name": "blks_hit",
+    "type": "bigint",
+    "desc": "Number of buffer hits in this sequence"
+   }
+  ],
+  "pg_statio_all_tables": [
+   {
+    "name": "relid",
+    "type": "oid",
+    "desc": "OID of a table"
+   },
+   {
+    "name": "schemaname",
+    "type": "name",
+    "desc": "Name of the schema that this table is in"
+   },
+   {
+    "name": "relname",
+    "type": "name",
+    "desc": "Name of this table"
+   },
+   {
+    "name": "heap_blks_read",
+    "type": "bigint",
+    "desc": "Number of disk blocks read from this table"
+   },
+   {
+    "name": "heap_blks_hit",
+    "type": "bigint",
+    "desc": "Number of buffer hits in this table"
+   },
+   {
+    "name": "idx_blks_read",
+    "type": "bigint",
+    "desc": "Number of disk blocks read from all indexes on this table"
+   },
+   {
+    "name": "idx_blks_hit",
+    "type": "bigint",
+    "desc": "Number of buffer hits in all indexes on this table"
+   },
+   {
+    "name": "toast_blks_read",
+    "type": "bigint",
+    "desc": "Number of disk blocks read from this table's TOAST table (if any)"
+   },
+   {
+    "name": "toast_blks_hit",
+    "type": "bigint",
+    "desc": "Number of buffer hits in this table's TOAST table (if any)"
+   },
+   {
+    "name": "tidx_blks_read",
+    "type": "bigint",
+    "desc": "Number of disk blocks read from this table's TOAST table indexes (if any)"
+   },
+   {
+    "name": "tidx_blks_hit",
+    "type": "bigint",
+    "desc": "Number of buffer hits in this table's TOAST table indexes (if any)"
+   }
+  ]
+ }
+}

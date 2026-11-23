@@ -87,7 +87,7 @@ jobs:
       - name: Integration tests
         env:
           PGMONK_TEST_DSN: postgresql://postgres:ci@localhost:5432/postgres?sslmode=disable
-        run: go test -tags integration -count=1 -v ./internal/collector/
+        run: go test -tags integration -count=1 -v ./internal/collector/ ./internal/knowledge/
 
       - name: diagnose smoke test
         run: go run ./cmd/pg-monk diagnose "postgresql://postgres:ci@localhost:5432/postgres?sslmode=disable"
