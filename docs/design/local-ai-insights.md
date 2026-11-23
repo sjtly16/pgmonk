@@ -26,6 +26,14 @@ Asked about PostgreSQL 18 with no reference material, `qwen2.5:3b`:
 | How to measure WAL write/fsync time | "use `pg_stat_wal_receiver` … PG 18 is quite old" | Correct only once *version notes* were added (`pg_stat_io WHERE object = 'wal'`) |
 | `pg_stat_io` column for I/O size | Partly invented | `read_bytes` / `write_bytes` — correct |
 
+A bigger model does not fix this. `qwen2.5:7b` without the pack also failed all
+three (invented 14 `pg_stat_wal` columns, a non-existent `pg_stat_file` view, and
+`num_read`/`num_written` on `pg_stat_io`); with the pack and version notes it
+answered all three correctly. Both models still occasionally add a wrong caveat
+(e.g. tying I/O timing to `pg_stat_statements` instead of `track_io_timing`),
+which is what the post-generation column check and the knowledge pack's
+interpretation notes are for. Cold-prefix cost on CPU: ~27 s (3B) vs ~54 s (7B).
+
 Newer releases are invisible to models trained before them: PostgreSQL 19
 (Nov 2026) adds `pg_stat_lock`, `pg_stat_autovacuum_scores`, `pg_stat_recovery`
 and `pg_stat_progress_repack`. This matches the version-drift problem described
