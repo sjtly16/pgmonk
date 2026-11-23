@@ -94,6 +94,12 @@ func TestCollectAgainstLiveServer(t *testing.T) {
 
 	info := coll.ServerInfo()
 	t.Logf("server %d, pg_stat_statements=%v", info.VersionNum, info.HasStatStatements)
+	if !info.Catalog.Has("pg_stat_activity", "pid") || !info.Catalog.Has("pg_locks", "granted") {
+		t.Fatalf("catalog not populated: %d views", len(info.Catalog))
+	}
+	if info.HasStatStatements && !info.Catalog.HasView("pg_stat_statements") {
+		t.Error("pg_stat_statements installed but missing from catalog")
+	}
 
 	// Give the waiter a moment to actually start waiting, then collect twice
 	// so rate-based metrics are populated.

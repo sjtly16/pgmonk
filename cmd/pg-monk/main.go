@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"runtime/debug"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -37,6 +38,14 @@ var (
 )
 
 func main() {
+	// `go install ...@vX.Y.Z` doesn't run our ldflags; fall back to the module
+	// version Go records in the binary.
+	if version == "dev" {
+		if bi, ok := debug.ReadBuildInfo(); ok && bi.Main.Version != "" && bi.Main.Version != "(devel)" {
+			version = bi.Main.Version
+		}
+	}
+
 	rootCmd := &cobra.Command{
 		Use:   "pg-monk [connection-string]",
 		Short: "🧘 pg-monk — real-time PostgreSQL performance dashboard",

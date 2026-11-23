@@ -124,8 +124,6 @@ func (c *Collector) collectIndexes(ctx context.Context) ([]model.IndexStat, erro
 // insSinceVacuumColumn returns pg_stat_user_tables.n_ins_since_vacuum, which
 // was added in PostgreSQL 13.
 func (c *Collector) insSinceVacuumColumn() string {
-	if c.serverInfo.VersionNum >= 130000 {
-		return "COALESCE(n_ins_since_vacuum, 0)"
-	}
-	return "0::bigint"
+	return c.colOr("pg_stat_user_tables", "n_ins_since_vacuum", 130000,
+		"COALESCE(n_ins_since_vacuum, 0)", "0::bigint")
 }

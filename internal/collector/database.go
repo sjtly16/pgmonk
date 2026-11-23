@@ -34,7 +34,7 @@ func (c *Collector) collectOverview(ctx context.Context) (model.Overview, *dbAbs
 
 	// Per-database stats from pg_stat_database.
 	// PG 14+ added session_time, active_time, idle_in_transaction_time, sessions, etc.
-	if c.serverInfo.VersionNum >= 140000 {
+	if c.has("pg_stat_database", "session_time", 140000) {
 		err = c.queryRow(ctx, `
 			SELECT
 				d.datname,

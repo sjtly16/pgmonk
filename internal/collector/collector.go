@@ -96,10 +96,7 @@ func (c *Collector) queryRow(ctx context.Context, sql string, args ...any) pgx.R
 // leaderPIDColumn returns a select expression for pg_stat_activity.leader_pid,
 // which only exists from PostgreSQL 13.
 func (c *Collector) leaderPIDColumn() string {
-	if c.serverInfo.VersionNum >= 130000 {
-		return "COALESCE(leader_pid, 0)"
-	}
-	return "0"
+	return c.colOr("pg_stat_activity", "leader_pid", 130000, "COALESCE(leader_pid, 0)", "0")
 }
 
 // ServerInfo returns the detected server metadata.

@@ -42,6 +42,10 @@ type ServerInfo struct {
 	HasStatCheckpointer bool // PG 17+ (separated from bgwriter)
 	IsStandby           bool
 	TrackIOTiming       bool
+
+	// Catalog lists the statistics views/columns present on this server.
+	// Excluded from snapshot exports; it is static per connection.
+	Catalog Catalog `json:"-"`
 }
 
 // Overview holds the high-level dashboard metrics.

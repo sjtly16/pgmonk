@@ -16,7 +16,7 @@ func (c *Collector) collectWALStats(ctx context.Context) (*model.WALStats, error
 			COALESCE(wal_sync, 0),
 			COALESCE(wal_write_time, 0),
 			COALESCE(wal_sync_time, 0),`
-	if c.serverInfo.VersionNum >= 180000 {
+	if !c.has("pg_stat_wal", "wal_write", 140000) {
 		ioCols = `
 			COALESCE((SELECT sum(writes) FROM pg_stat_io WHERE object = 'wal'), 0)::bigint,
 			COALESCE((SELECT sum(fsyncs) FROM pg_stat_io WHERE object = 'wal'), 0)::bigint,
@@ -47,10 +47,7 @@ func (c *Collector) collectWALStats(ctx context.Context) (*model.WALStats, error
 // collectCheckpointerStats gathers checkpoint process stats from pg_stat_checkpointer (PG 17+).
 func (c *Collector) collectCheckpointerStats(ctx context.Context) (*model.CheckpointerStats, error) {
 	// num_done was added in PG 18.
-	numDone := "0::bigint"
-	if c.serverInfo.VersionNum >= 180000 {
-		numDone = "COALESCE(num_done, 0)"
-	}
+	numDone := c.colOr("pg_stat_checkpointer", "num_done", 180000, "COALESCE(num_done, 0)", "0::bigint")
 	var s model.CheckpointerStats
 	err := c.queryRow(ctx, `
 		SELECT
@@ -191,7 +188,7 @@ func (c *Collector) collectConflictStats(ctx context.Context) (*model.ConflictSt
 	}
 
 	// confl_active_logicalslot added in PG 15.
-	if c.serverInfo.VersionNum >= 150000 {
+	if c.has("pg_stat_database_conflicts", "confl_active_logicalslot", 160000) {
 		_ = c.queryRow(ctx, `
 			SELECT COALESCE(SUM(confl_active_logicalslot), 0)
 			FROM pg_stat_database_conflicts
