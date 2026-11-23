@@ -65,7 +65,14 @@ func (o *Ollama) Complete(ctx context.Context, system, user string) (string, Usa
 		TotalDuration      int64  `json:"total_duration"`
 		Error              string `json:"error"`
 	}
-	status, err := postJSON(ctx, o.Client, strings.TrimSuffix(o.BaseURL, "/")+"/api/chat", "", body, &out)
+	endpoint := strings.TrimSuffix(o.BaseURL, "/") + "/api/chat"
+	status, err := postJSON(ctx, o.Client, endpoint, "", body, &out)
+	if status >= 500 && ctx.Err() == nil {
+		// Ollama restarts a crashed model runner automatically (e.g. after
+		// running out of memory); one retry usually succeeds.
+		out.Error = ""
+		status, err = postJSON(ctx, o.Client, endpoint, "", body, &out)
+	}
 	if status == http.StatusNotFound || strings.Contains(out.Error, "not found") {
 		return "", Usage{}, fmt.Errorf("%w: %q (run: ollama pull %s)", ErrModelNotFound, o.Model, o.Model)
 	}
@@ -158,6 +165,9 @@ func postJSON(ctx context.Context, c *http.Client, endpoint, apiKey string, body
 	}
 	resp, err := c.Do(req)
 	if err != nil {
+		if errors.Is(err, context.DeadlineExceeded) {
+			return 0, fmt.Errorf("timed out waiting for the model at %s — it is generating too slowly on this machine; raise ai.timeout, try a smaller model, or free up CPU/RAM", hostOf(endpoint))
+		}
 		return 0, fmt.Errorf("cannot reach %s: %w", hostOf(endpoint), err)
 	}
 	defer func() { _ = resp.Body.Close() }()
@@ -200,4 +210,44 @@ func IsLocal(endpoint string) bool {
 	default:
 		return strings.HasSuffix(h, ".localhost")
 	}
+}
+
+// NewProvider builds a provider by kind ("ollama" or "openai").
+func NewProvider(kind, baseURL, model, apiKey string, numCtx int, keepAlive string) (Provider, error) {
+	client := &http.Client{} // per-request deadlines come from the context
+	switch strings.ToLower(kind) {
+	case "", "ollama":
+		return &Ollama{BaseURL: baseURL, Model: model, NumCtx: numCtx, KeepAlive: keepAlive, Client: client}, nil
+	case "openai", "openai-compatible", "lmstudio", "llamacpp", "vllm":
+		return &OpenAI{BaseURL: baseURL, Model: model, APIKey: apiKey, Client: client}, nil
+	default:
+		return nil, fmt.Errorf("unknown AI provider %q (use \"ollama\" or \"openai\")", kind)
+	}
+}
+
+// ListOllamaModels returns the models an Ollama server has pulled. Used by
+// `pg-monk ai check`.
+func ListOllamaModels(ctx context.Context, baseURL string) ([]string, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, strings.TrimSuffix(baseURL, "/")+"/api/tags", nil)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("cannot reach Ollama at %s: %w", baseURL, err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+	var out struct {
+		Models []struct {
+			Name string `json:"name"`
+		} `json:"models"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+		return nil, fmt.Errorf("unexpected response from %s: %w", baseURL, err)
+	}
+	names := make([]string, 0, len(out.Models))
+	for _, m := range out.Models {
+		names = append(names, m.Name)
+	}
+	return names, nil
 }

@@ -18,7 +18,8 @@ Think `htop`, but for Postgres. Zero dependencies, single binary, instant insigh
 ## Features
 
 - **7-view TUI dashboard** — live-updating terminal UI with connection gauges, throughput, WAL, replication, and more
-- **27 analyzer rules** — real-time insights with configurable thresholds for cache, connections, XID wraparound, replication lag, vacuum health, and more
+- **28 analyzer rules** — real-time insights with configurable thresholds for cache, connections, blocking locks, XID wraparound, replication lag, vacuum health, and more
+- **Local AI insights (optional)** — root-cause analysis from a model running on your machine (Ollama or any OpenAI-compatible server), grounded in knowledge of *your exact PostgreSQL version*; suggested SQL is verified against your server. Nothing leaves your machine.
 - **Active session monitor** — color-coded view of all database sessions with wait events
 - **Top queries analysis** — slowest queries ranked by total/mean time, calls, cache efficiency, WAL generation, and JIT stats (requires `pg_stat_statements`)
 - **Table health** — dead tuples, vacuum status, sequential scan warnings, bloat detection, stale statistics
@@ -132,7 +133,7 @@ Connections aggregated per client address — active / idle / idle-in-tx / waiti
 
 ### 7. Insights
 
-27 rule-based checks run on every refresh, ranked critical → warning → info, each with a concrete suggestion. Thresholds are configurable (see [Configuration](#configuration)).
+28 rule-based checks run on every refresh, ranked critical → warning → info, each with a concrete suggestion. Thresholds are configurable (see [Configuration](#configuration)).
 
 ![Insights](docs/media/insights.png)
 
@@ -143,6 +144,42 @@ pg-monk diagnose -H localhost -U monitor -d mydb
 ```
 
 ![Diagnose](docs/media/diagnose.png)
+
+---
+
+## AI Insights (local LLM)
+
+The rule engine tells you *what* is wrong. With `--ai`, a language model running on your own machine explains *why* — connecting findings into root causes (e.g. "one session idle in a transaction is blocking two writers **and** stopping vacuum, which is why `products` bloats right after autovacuum") and ranking what to fix first.
+
+```bash
+# 1. Install Ollama (https://ollama.com) and pull a model
+ollama pull qwen2.5:7b
+
+# 2. Check the setup (server, model, and the knowledge pack for your database)
+pg-monk ai check postgresql://monitor@localhost/mydb
+
+# 3. Use it
+pg-monk --ai postgresql://monitor@localhost/mydb          # Insights tab (7); press r to re-analyze
+pg-monk diagnose --ai postgresql://monitor@localhost/mydb # one-shot, rules + AI
+```
+
+**How it stays accurate.** Small local models confidently invent `pg_stat_*` columns, and they don't know releases newer than their training data (in testing, `qwen2.5` 3B and 7B both listed non-existent `pg_stat_wal` columns for PostgreSQL 18). pg-monk grounds the model instead of trusting it:
+
+1. **Version detection** — on connect, pg-monk reads the server version *and* the live catalog of every statistics view and column.
+2. **Version knowledge pack** — pg-monk ships a pack per major version (12–19), generated from that release's official documentation plus curated notes on what moved between releases (e.g. PG 18 moved WAL write/fsync timing from `pg_stat_wal` to `pg_stat_io`). Only columns that exist on your server are included. Tests verify every note against the docs, and CI verifies the docs against real servers.
+3. **Verification** — every `view.column` the model mentions is checked against your catalog, every suggested `SELECT` is planned with `EXPLAIN` in a read-only transaction, and settings that need a restart are flagged when the model suggests a reload. pg-monk never runs anything the model suggests.
+
+**Fast after the first run.** The version knowledge is a byte-identical prefix on every request, so the model server reuses its prompt cache; only the snapshot digest is processed each time.
+
+**Privacy.** The prompt contains statistics and normalized query text. With the default `localhost` server nothing leaves your machine; pg-monk warns if the AI server is elsewhere. Run `pg-monk ai prompt` to see exactly what would be sent.
+
+**Models.** `qwen2.5:7b` (default) gives the best results; `qwen2.5:3b` works on machines with less memory but is noticeably weaker. Any OpenAI-compatible server works too:
+
+```bash
+pg-monk --ai --ai-provider openai --ai-url http://localhost:1234/v1 --ai-model <model>   # LM Studio, llama.cpp, vLLM, ...
+```
+
+Inference speed depends on your hardware: native Ollama on Apple Silicon or a GPU takes seconds per analysis; CPU-only inference (e.g. Ollama inside Docker on a Mac) can take a minute or more.
 
 ---
 
@@ -272,6 +309,11 @@ pg-monk diagnose [connection]            # One-shot health check
 pg-monk diagnose -H db -U monitor -d app # psql-style flags work on every subcommand
 
 pg-monk init-config                      # Write default config to ~/.pgmonk.json
+
+pg-monk --ai [connection]                # Dashboard with AI insights (local LLM)
+pg-monk diagnose --ai [connection]       # Health check + AI root-cause analysis
+pg-monk ai check [connection]            # Verify AI server, model and knowledge pack
+pg-monk ai prompt [connection]           # Print the exact prompt that would be sent
 ```
 
 ---
@@ -300,9 +342,20 @@ Generate a default config with `pg-monk init-config`, then edit `~/.pgmonk.json`
     "temp_bytes_warn": 1073741824,
     "long_tx_warn": "1h",
     "long_tx_critical": "6h"
+  },
+  "ai": {
+    "enabled": false,
+    "provider": "ollama",
+    "base_url": "http://localhost:11434",
+    "model": "qwen2.5:7b",
+    "num_ctx": 8192,
+    "keep_alive": "30m",
+    "timeout": "5m"
   }
 }
 ```
+
+AI settings can also come from `PGMONK_AI_PROVIDER`, `PGMONK_AI_URL`, `PGMONK_AI_MODEL`, `PGMONK_AI_API_KEY` (or `OLLAMA_HOST`), and the `--ai*` flags.
 
 ---
 
@@ -334,7 +387,9 @@ Generate a default config with `pg-monk init-config`, then edit `~/.pgmonk.json`
 pgmonk/
 ├── cmd/pg-monk/main.go             # CLI (Cobra)
 ├── internal/
-│   ├── analyzer/rules.go           # 27 diagnostic rules
+│   ├── analyzer/rules.go           # 28 diagnostic rules
+│   ├── ai/                         # Local LLM insights: digest, prompt, providers, validation
+│   ├── knowledge/                  # Per-version stats-view knowledge (generated from PG docs)
 │   ├── collector/                   # PostgreSQL metric collection (11 files)
 │   ├── config/config.go            # JSON config loader
 │   ├── model/metrics.go            # Data structures (20+ types)
@@ -374,9 +429,9 @@ make media       # re-record docs/media with VHS
 ## Roadmap
 
 - [x] 7-view TUI with 16+ pg_stat views
-- [x] 27-rule analyzer with configurable thresholds
+- [x] 28-rule analyzer with configurable thresholds
 - [x] Blocking-chain lock monitor
-- [ ] AI insights from a **local LLM** (Ollama / any OpenAI-compatible server) — nothing leaves your machine
+- [x] AI insights from a **local LLM**, grounded in version-specific knowledge — nothing leaves your machine
 - [ ] Query plan visualization
 - [ ] Historical trend storage
 

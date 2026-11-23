@@ -20,6 +20,8 @@ func (m Model) renderInsights() string {
 	insights := analyzer.Analyze(m.snapshot)
 
 	var b strings.Builder
+	b.WriteString(m.renderAISection(innerW))
+	b.WriteString(dashSectionTitle("RULE-BASED CHECKS") + "\n")
 
 	if len(insights) == 0 {
 		content := styleGood.Render("All checks passed — database looks healthy!")
@@ -49,10 +51,6 @@ func (m Model) renderInsights() string {
 	b.WriteString(dashBox(innerW).Render(summaryLine))
 	b.WriteString("\n")
 
-	maxRows := (m.height - 10) / 3
-	if maxRows < 3 {
-		maxRows = 3
-	}
 	textWidth := innerW - 6
 	if textWidth < 40 {
 		textWidth = 40
@@ -64,14 +62,6 @@ func (m Model) renderInsights() string {
 			if ins.Severity != sev {
 				continue
 			}
-			if shown >= maxRows {
-				remaining := len(insights) - shown
-				b.WriteString(lipgloss.NewStyle().Foreground(colorMuted).PaddingLeft(2).Render(
-					fmt.Sprintf("... and %d more insights", remaining)))
-				b.WriteString("\n")
-				return b.String()
-			}
-
 			icon := severityIcon(ins.Severity)
 			titleStyle := severityStyle(ins.Severity)
 

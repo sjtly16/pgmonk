@@ -3,9 +3,11 @@ package tui
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/sjtly16/pgmonk/internal/ai"
 	"github.com/sjtly16/pgmonk/internal/model"
 )
 
@@ -48,11 +50,21 @@ type Model struct {
 	showDetail     bool
 	scrollOffset   int
 	selectedRow    int
+
+	// AI insights (nil engine = disabled).
+	ai             *ai.Engine
+	aiTimeout      time.Duration
+	aiLoading      bool
+	aiStarted      time.Time
+	aiNow          time.Time
+	aiResult       *ai.Result
+	aiErr          string
+	insightsScroll int
 }
 
 // NewModel creates a new TUI model.
-func NewModel(serverInfo model.ServerInfo) Model {
-	return Model{
+func NewModel(serverInfo model.ServerInfo, opts ...Option) Model {
+	m := Model{
 		serverInfo:    serverInfo,
 		currentView:   ViewDashboard,
 		querySortBy:   "total_time",
@@ -61,6 +73,10 @@ func NewModel(serverInfo model.ServerInfo) Model {
 		sessionSortBy: "state",
 		hasStatStmts:  serverInfo.HasStatStatements,
 	}
+	for _, o := range opts {
+		o(&m)
+	}
+	return m
 }
 
 // contentWidth returns the usable content width.
@@ -138,6 +154,7 @@ func (m *Model) resetScroll() {
 	m.scrollOffset = 0
 	m.selectedRow = 0
 	m.showDetail = false
+	m.insightsScroll = 0
 }
 
 // Init implements tea.Model.
@@ -149,7 +166,39 @@ func (m Model) Init() tea.Cmd {
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 
+	case aiResultMsg:
+		m.aiLoading = false
+		if msg.err != nil {
+			m.aiErr = msg.err.Error()
+		} else {
+			m.aiResult = msg.res
+			m.aiErr = ""
+		}
+		return m, nil
+
+	case aiTickMsg:
+		if m.aiLoading {
+			m.aiNow = time.Time(msg)
+			return m, aiTick()
+		}
+		return m, nil
+
 	case tea.KeyMsg:
+		before := m.currentView
+		next, cmd := m.handleKey(msg)
+		nm := next.(Model)
+		if cmd == nil && nm.currentView == ViewInsights && before != ViewInsights {
+			cmd = nm.maybeAutoAI()
+		}
+		return nm, cmd
+	}
+
+	return m.updateOther(msg)
+}
+
+// handleKey processes key presses.
+func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	{
 		// Help modal takes precedence.
 		if m.showHelpModal {
 			switch msg.String() {
@@ -289,6 +338,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Scroll and navigate with j/k or arrow keys.
 		case "j", "down":
 			switch m.currentView {
+			case ViewInsights:
+				m.insightsScroll++
 			case ViewSessions, ViewQueries, ViewTables, ViewLocks:
 				m.selectedRow++
 				m.clampScroll()
@@ -299,6 +350,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		case "k", "up":
 			switch m.currentView {
+			case ViewInsights:
+				if m.insightsScroll > 0 {
+					m.insightsScroll--
+				}
 			case ViewSessions, ViewQueries, ViewTables, ViewLocks:
 				m.selectedRow--
 				m.clampScroll()
@@ -313,19 +368,32 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "G":
 			m.selectedRow = m.dataLen() - 1
 			m.clampScroll()
+		case "r":
+			if m.currentView == ViewInsights {
+				return m, m.startAI()
+			}
 		}
+	}
+	return m, nil
+}
 
+// updateOther handles non-key messages.
+func (m Model) updateOther(msg tea.Msg) (tea.Model, tea.Cmd) {
+	switch msg := msg.(type) {
 	case SnapshotMsg:
 		m.prevSnapshot = m.snapshot
 		m.snapshot = msg.Snapshot
 		m.ready = true
 		m.clampScroll()
+		// Insights tab opened before the first snapshot arrived.
+		if m.aiResult == nil && m.aiErr == "" {
+			return m, m.maybeAutoAI()
+		}
 
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
 	}
-
 	return m, nil
 }
 
@@ -383,6 +451,17 @@ func (m Model) View() string {
 	}
 
 	contentLines := strings.Split(content, "\n")
+
+	// The Insights tab scrolls by line (AI findings are free-form text).
+	if m.currentView == ViewInsights && m.insightsScroll > 0 {
+		off := m.insightsScroll
+		if max := len(contentLines) - availableHeight; off > max {
+			off = max
+		}
+		if off > 0 {
+			contentLines = contentLines[off:]
+		}
+	}
 
 	// Truncate to available height.
 	if len(contentLines) > availableHeight {
@@ -500,6 +579,11 @@ func (m Model) renderHelp() string {
 		parts = append(parts, key("j/k", "scroll"))
 	case ViewClients:
 		parts = append(parts, key("s", "sort"), key("Enter", "expand"), key("Esc", "back"))
+	case ViewInsights:
+		parts = append(parts, key("j/k", "scroll"))
+		if m.ai != nil {
+			parts = append(parts, key("r", "AI analyze"))
+		}
 	}
 	if m.showDetail {
 		parts = append(parts, key("Esc", "close"))
@@ -558,6 +642,7 @@ func (m Model) renderHelpModal() string {
 		{"s", "Change sort order"},
 		{"Enter", "Show detail / expand client"},
 		{"Esc / Backspace", "Close detail / collapse"},
+		{"r", "Run AI analysis (Insights, with --ai)"},
 		{"?", "Toggle this help"},
 		{"q / Ctrl+C", "Quit"},
 	}

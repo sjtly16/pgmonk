@@ -41,10 +41,14 @@ func Digest(snap *model.Snapshot, findings []analyzer.Insight) string {
 		o.TxCommitRate, o.TxRollbackRate, o.RollbackRatio, o.CacheHitRatio, o.Deadlocks, o.TempFiles, fmtBytes(o.TempBytes))
 	fmt.Fprintf(&b, "Database size %s. Oldest frozen XID age %s (wraparound at ~2.1B).\n", fmtBytes(o.DatabaseSize), num(o.DataFrozenXIDAge))
 
-	writeSettings(&b, snap.Settings)
-	writeBackground(&b, snap)
+	// Live problems first: small models weigh early context more.
+	writeVacuumHorizon(&b, snap)
 	writeSessions(&b, snap)
 	writeLockChains(&b, snap)
+
+	b.WriteString("\n## Configuration and background activity\n")
+	writeSettings(&b, snap.Settings)
+	writeBackground(&b, snap)
 	writeQueries(&b, snap)
 	writeTables(&b, snap)
 	writeIndexes(&b, snap)
@@ -55,9 +59,39 @@ func Digest(snap *model.Snapshot, findings []analyzer.Insight) string {
 		b.WriteString("None — all checks passed.\n")
 	}
 	for _, f := range findings {
-		fmt.Fprintf(&b, "- [%s] %s: %s\n", strings.ToLower(f.Severity.String()), f.Title, f.Description)
+		fmt.Fprintf(&b, "- [%s] %s: %s\n", severityName(f.Severity), f.Title, f.Description)
 	}
 	return b.String()
+}
+
+// writeVacuumHorizon names the client session whose open transaction is
+// oldest among those holding an xid or snapshot: while it is open, VACUUM
+// cannot remove rows that became dead after it started, so dead tuples pile
+// up even on freshly vacuumed tables. Stated explicitly because models rarely
+// infer it from raw session data.
+func writeVacuumHorizon(b *strings.Builder, snap *model.Snapshot) {
+	var oldest *model.Activity
+	for i := range snap.Activities {
+		a := &snap.Activities[i]
+		if a.ApplicationName == "pg-monk" || a.XactStart.IsZero() || (a.BackendXID == "" && a.BackendXmin == "") {
+			continue
+		}
+		if a.BackendType != "" && a.BackendType != "client backend" {
+			continue
+		}
+		if oldest == nil || a.XactStart.Before(oldest.XactStart) {
+			oldest = a
+		}
+	}
+	if oldest == nil {
+		return
+	}
+	age := snap.CollectedAt.Sub(oldest.XactStart)
+	if age < 30*time.Second {
+		return
+	}
+	fmt.Fprintf(b, "\n## Vacuum horizon\nHeld back by pid %d (app=%s, state=%q), whose transaction has been open for %s. Until it ends, VACUUM and autovacuum cannot remove any row version that became dead after it started — dead tuples will keep growing on every frequently updated table even right after autovacuum runs.\n",
+		oldest.PID, orDash(oldest.ApplicationName), oldest.State, dur(age))
 }
 
 func writeSettings(b *strings.Builder, settings []model.Setting) {
@@ -70,16 +104,23 @@ func writeSettings(b *strings.Builder, settings []model.Setting) {
 		if s.Unit != "" {
 			v += s.Unit
 		}
+		if s.Context == "postmaster" {
+			v += "*"
+		}
 		parts = append(parts, s.Name+"="+v)
 	}
-	b.WriteString("Settings: " + strings.Join(parts, ", ") + ".\n")
+	b.WriteString("Settings (* = only changes after a server restart, not with pg_reload_conf): " + strings.Join(parts, ", ") + ".\n")
 }
 
 func writeBackground(b *strings.Builder, snap *model.Snapshot) {
 	o := snap.Overview
 	if c := snap.CheckpointerStats; c != nil {
-		fmt.Fprintf(b, "Checkpoints (pg_stat_checkpointer): timed %d, requested %d, done %d, write %.0fms, sync %.0fms, buffers written %d.\n",
-			c.NumTimed, c.NumRequested, c.NumDone, c.WriteTime, c.SyncTime, c.BuffersWritten)
+		done := ""
+		if snap.ServerInfo.Catalog.Has("pg_stat_checkpointer", "num_done") {
+			done = fmt.Sprintf(", done %d", c.NumDone)
+		}
+		fmt.Fprintf(b, "Checkpoints (pg_stat_checkpointer): timed %d, requested %d%s, write %.0fms, sync %.0fms, buffers written %d.\n",
+			c.NumTimed, c.NumRequested, done, c.WriteTime, c.SyncTime, c.BuffersWritten)
 	} else if o.CheckpointsTimed+o.CheckpointsReq > 0 {
 		fmt.Fprintf(b, "Checkpoints (pg_stat_bgwriter): timed %d, requested %d.\n", o.CheckpointsTimed, o.CheckpointsReq)
 	}
@@ -123,7 +164,7 @@ func writeSessions(b *strings.Builder, snap *model.Snapshot) {
 		return
 	}
 	sort.SliceStable(rows, func(i, j int) bool { return rows[i].age > rows[j].age })
-	b.WriteString("\n## Sessions of interest (longest first)\n")
+	b.WriteString("\n## Sessions of interest right now (longest first)\n")
 	for i, r := range rows {
 		if i == maxSessions {
 			fmt.Fprintf(b, "- … %d more\n", len(rows)-maxSessions)
@@ -160,7 +201,7 @@ func writeLockChains(b *strings.Builder, snap *model.Snapshot) {
 		pids = append(pids, p)
 	}
 	sort.Ints(pids)
-	b.WriteString("\n## Lock waits\n")
+	b.WriteString("\n## Lock waits right now\n")
 	for _, p := range pids {
 		l := waiting[p]
 		target := l.RelationName
@@ -251,6 +292,17 @@ func writeReplication(b *strings.Builder, snap *model.Snapshot) {
 }
 
 // ---- formatting helpers ----
+
+func severityName(s analyzer.Severity) string {
+	switch s {
+	case analyzer.Critical:
+		return "critical"
+	case analyzer.Warning:
+		return "warning"
+	default:
+		return "info"
+	}
+}
 
 func clip(q string) string {
 	q = strings.Join(strings.Fields(q), " ")

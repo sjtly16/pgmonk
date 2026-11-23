@@ -34,7 +34,7 @@ var diagnosticSettings = []string{
 // collectSettings reads the diagnostic subset of pg_settings.
 func (c *Collector) collectSettings(ctx context.Context) ([]model.Setting, error) {
 	rows, err := c.query(ctx, `
-		SELECT name, setting, COALESCE(unit, ''), category, short_desc, source
+		SELECT name, setting, COALESCE(unit, ''), category, short_desc, source, context
 		FROM pg_settings
 		WHERE name = ANY($1)
 		ORDER BY name
@@ -47,7 +47,7 @@ func (c *Collector) collectSettings(ctx context.Context) ([]model.Setting, error
 	var out []model.Setting
 	for rows.Next() {
 		var s model.Setting
-		if err := rows.Scan(&s.Name, &s.Value, &s.Unit, &s.Category, &s.Description, &s.Source); err != nil {
+		if err := rows.Scan(&s.Name, &s.Value, &s.Unit, &s.Category, &s.Description, &s.Source, &s.Context); err != nil {
 			return nil, err
 		}
 		out = append(out, s)
@@ -66,7 +66,8 @@ func (c *Collector) ExplainReadOnly(ctx context.Context, sql string) error {
 	q := strings.TrimSpace(sql)
 	q = strings.TrimSuffix(q, ";")
 	lower := strings.ToLower(q)
-	if strings.Contains(q, ";") || !(strings.HasPrefix(lower, "select") || strings.HasPrefix(lower, "with")) {
+	isQuery := strings.HasPrefix(lower, "select") || strings.HasPrefix(lower, "with")
+	if strings.Contains(q, ";") || !isQuery {
 		return ErrNotReadOnly
 	}
 

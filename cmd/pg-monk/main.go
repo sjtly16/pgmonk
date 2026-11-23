@@ -108,6 +108,9 @@ Or using environment variable:
 	initConfigCmd.Flags().StringP("output", "o", "", "Output path (default: ~/.pgmonk.json)")
 	rootCmd.AddCommand(initConfigCmd)
 
+	addAIFlags(rootCmd)
+	rootCmd.AddCommand(newAICmd())
+
 	if err := rootCmd.Execute(); err != nil {
 		os.Exit(1)
 	}
@@ -174,7 +177,8 @@ func buildDSN(args []string) string {
 
 // runDashboard is the main interactive TUI command.
 func runDashboard(cmd *cobra.Command, args []string) error {
-	if _, err := loadConfig(); err != nil {
+	cfg, err := loadConfig()
+	if err != nil {
 		return err
 	}
 
@@ -202,7 +206,17 @@ func runDashboard(cmd *cobra.Command, args []string) error {
 	fmt.Println()
 
 	// Create Bubble Tea program.
-	model := tui.NewModel(info)
+	var opts []tui.Option
+	if aiEnabled(cfg) {
+		a := aiSettings(cfg)
+		engine, err := newAIEngine(a, coll)
+		if err != nil {
+			return err
+		}
+		fmt.Printf("  ✓ AI insights: %s (PostgreSQL %d knowledge) — open the Insights tab (7)\n", engine.ModelName(), engine.Pack().RefMajor)
+		opts = append(opts, tui.WithAI(engine, a.Timeout))
+	}
+	model := tui.NewModel(info, opts...)
 	p := tea.NewProgram(model, tea.WithAltScreen())
 
 	// Start the collector in a background goroutine.
@@ -292,7 +306,8 @@ func runSnapshot(cmd *cobra.Command, args []string) error {
 
 // runDiagnose performs a health check and prints insights.
 func runDiagnose(cmd *cobra.Command, args []string) error {
-	if _, err := loadConfig(); err != nil {
+	cfg, err := loadConfig()
+	if err != nil {
 		return err
 	}
 
@@ -345,6 +360,10 @@ func runDiagnose(cmd *cobra.Command, args []string) error {
 
 	if len(insights) == 0 {
 		fmt.Println("  ✓ No issues found. Database looks healthy!")
+		fmt.Println()
+		if aiEnabled(cfg) {
+			return printAIAnalysis(cfg, coll, snap)
+		}
 		return nil
 	}
 
@@ -379,6 +398,9 @@ func runDiagnose(cmd *cobra.Command, args []string) error {
 		fmt.Printf("     💡 %s\n\n", ins.Suggestion)
 	}
 
+	if aiEnabled(cfg) {
+		return printAIAnalysis(cfg, coll, snap)
+	}
 	return nil
 }
 

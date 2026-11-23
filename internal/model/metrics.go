@@ -253,6 +253,7 @@ type Setting struct {
 	Category    string
 	Description string
 	Source      string
+	Context     string // pg_settings.context; "postmaster" means a restart is needed to change it
 }
 
 // ClientStat holds aggregated metrics for a single client address.

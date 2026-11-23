@@ -19,6 +19,7 @@ Rules:
 4. Each "sql" value must be a single read-only SELECT that helps confirm the finding, or an empty string. Put fixes (VACUUM, CREATE INDEX, ALTER SYSTEM, pg_terminate_backend) in "action" as text, never in "sql".
 5. If nothing is wrong, say so in the summary and return an empty findings list. Do not invent problems.
 6. At most 5 findings, most important first. Be concise.
+7. Use only valid PostgreSQL syntax in actions, for example: VACUUM (VERBOSE, ANALYZE) schema.table; CREATE INDEX CONCURRENTLY name ON schema.table (column); ALTER SYSTEM SET name = 'value' followed by SELECT pg_reload_conf(); SELECT pg_terminate_backend(pid).
 
 Respond with JSON only, no prose and no code fences, exactly in this shape:
 {"summary": "one or two sentences", "findings": [{"severity": "critical|warning|info", "title": "max 70 chars", "evidence": "numbers from the snapshot", "root_cause": "why it happens", "action": "what to do", "sql": "optional single SELECT"}]}
@@ -49,7 +50,9 @@ type Finding struct {
 
 	// Set by validation, not by the model.
 	SQLVerified bool     `json:"-"`
+	SQLIsFix    bool     `json:"-"` // not a SELECT: a change for the user to review and run
 	SQLError    string   `json:"-"`
+	Notes       []string `json:"-"` // deterministic corrections added by pg-monk
 	Unknown     []string `json:"-"` // view.column references that don't exist on the server
 }
 

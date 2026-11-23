@@ -87,6 +87,7 @@ func (e *Engine) Analyze(ctx context.Context, snap *model.Snapshot) (*Result, er
 	}
 	res.Response = resp
 	e.validate(ctx, resp)
+	addRestartNotes(resp, snap.Settings)
 	return res, nil
 }
 
@@ -115,6 +116,34 @@ func UnknownColumns(text string, cat model.Catalog) []string {
 	return out
 }
 
+var reSettingName = regexp.MustCompile(`\b[a-z][a-z0-9_]*(?:\.[a-z0-9_]+)?\b`)
+
+// addRestartNotes corrects a common small-model mistake: suggesting
+// pg_reload_conf() for settings that only change after a server restart
+// (pg_settings.context = 'postmaster').
+func addRestartNotes(r *Response, settings []model.Setting) {
+	restart := map[string]bool{}
+	for _, s := range settings {
+		if s.Context == "postmaster" {
+			restart[s.Name] = true
+		}
+	}
+	for i := range r.Findings {
+		f := &r.Findings[i]
+		text := strings.ToLower(f.Action + "\n" + f.SQL)
+		if !strings.Contains(text, "pg_reload_conf") {
+			continue
+		}
+		seen := map[string]bool{}
+		for _, name := range reSettingName.FindAllString(text, -1) {
+			if restart[name] && !seen[name] {
+				seen[name] = true
+				f.Notes = append(f.Notes, fmt.Sprintf("%s only takes effect after a server restart; pg_reload_conf() will not apply it.", name))
+			}
+		}
+	}
+}
+
 func (e *Engine) validate(ctx context.Context, r *Response) {
 	for i := range r.Findings {
 		f := &r.Findings[i]
@@ -128,7 +157,7 @@ func (e *Engine) validate(ctx context.Context, r *Response) {
 		case err == nil:
 			f.SQLVerified = true
 		case e.notReadOnly != nil && errors.Is(err, e.notReadOnly):
-			f.SQLError = "not a single SELECT — not verified, review before running"
+			f.SQLIsFix = true
 		default:
 			f.SQLError = err.Error()
 		}

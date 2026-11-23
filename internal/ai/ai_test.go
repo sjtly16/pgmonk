@@ -34,9 +34,9 @@ func testSnapshot() *model.Snapshot {
 			DatabaseName: "shop", TotalConnections: 9, MaxConnections: 50, ActiveConnections: 6,
 			IdleInTxConnections: 2, CacheHitRatio: 99.99, TxCommitRate: 418, DatabaseSize: 150 << 20,
 		},
-		Settings: []model.Setting{{Name: "work_mem", Value: "4096", Unit: "kB"}},
+		Settings: []model.Setting{{Name: "work_mem", Value: "4096", Unit: "kB", Context: "user"}, {Name: "wal_buffers", Value: "512", Unit: "8kB", Context: "postmaster"}},
 		Activities: []model.Activity{
-			{PID: 9402, ApplicationName: "admin-console", State: "idle in transaction", XactStart: xact,
+			{PID: 9402, ApplicationName: "admin-console", State: "idle in transaction", XactStart: xact, BackendXID: "777",
 				Query: "SELECT *\n  FROM customers WHERE id = 7 FOR UPDATE", BackendType: "client backend"},
 			{PID: 9502, ApplicationName: "signup-api", State: "active", Duration: 11 * time.Minute,
 				WaitEventType: "Lock", WaitEvent: "transactionid", Query: "UPDATE customers SET email = email WHERE id = 7", BackendType: "client backend"},
@@ -60,11 +60,12 @@ func TestDigest(t *testing.T) {
 	for _, want := range []string{
 		`Database "shop", server PostgreSQL 17.9`,
 		"Connections: 9/50",
-		"work_mem=4096kB",
+		"work_mem=4096kB, wal_buffers=5128kB*",
 		`pid 9402 app=admin-console state="idle in transaction" for 11.0m: SELECT * FROM customers WHERE id = 7 FOR UPDATE`,
 		"pid 9502 (signup-api) waiting 11.0m for ShareLock on transactionid, blocked by pid 9402 (admin-console, idle in transaction)",
 		"public.events: 163.7K live, 166.7K dead",
 		"None — all checks passed.",
+		"## Vacuum horizon\nHeld back by pid 9402 (app=admin-console",
 	} {
 		if !strings.Contains(d, want) {
 			t.Errorf("digest missing %q\n---\n%s", want, d)
@@ -259,11 +260,28 @@ func TestEngineValidatesFindings(t *testing.T) {
 	if f[1].SQLVerified || !strings.Contains(f[1].SQLError, "does not exist") || len(f[1].Unknown) != 1 {
 		t.Errorf("finding 1 should be flagged: %+v", f[1])
 	}
-	if f[2].SQLVerified || !strings.Contains(f[2].SQLError, "not verified") {
+	if f[2].SQLVerified || !f[2].SQLIsFix || f[2].SQLError != "" {
 		t.Errorf("finding 2 should be marked unverified: %+v", f[2])
 	}
 	if !strings.Contains(fp.user, "## Rule-based findings") || fp.system != e.system {
 		t.Error("engine did not send digest + stable system prompt")
+	}
+}
+
+func TestRestartNotes(t *testing.T) {
+	r := &Response{Findings: []Finding{
+		{Action: "Increase wal_buffers", SQL: "ALTER SYSTEM SET wal_buffers = '16MB'; SELECT pg_reload_conf();"},
+		{Action: "ALTER SYSTEM SET work_mem = '64MB'; SELECT pg_reload_conf();"},
+		{Action: "Raise shared_buffers and restart the server"},
+	}}
+	addRestartNotes(r, []model.Setting{
+		{Name: "wal_buffers", Context: "postmaster"}, {Name: "shared_buffers", Context: "postmaster"}, {Name: "work_mem", Context: "user"},
+	})
+	if len(r.Findings[0].Notes) != 1 || !strings.Contains(r.Findings[0].Notes[0], "wal_buffers only takes effect after a server restart") {
+		t.Errorf("wal_buffers + reload should get a note: %v", r.Findings[0].Notes)
+	}
+	if len(r.Findings[1].Notes) != 0 || len(r.Findings[2].Notes) != 0 {
+		t.Errorf("no note expected for reloadable setting or for advice that already says restart")
 	}
 }
 

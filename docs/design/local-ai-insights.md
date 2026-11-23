@@ -1,6 +1,6 @@
 # Design: version-aware AI insights with a local LLM
 
-Status: **proposal** · Target: pg-monk v0.2 · Scope: open-source, runs fully local
+Status: **implemented** in v0.2 (see `internal/knowledge`, `internal/ai`) · Scope: open-source, runs fully local
 
 ## Goal
 
