@@ -101,6 +101,7 @@ func Analyze(snap *model.Snapshot) []Insight {
 	insights = append(insights, checkUnusedIndexes(snap)...)
 	insights = append(insights, checkMissingIndexes(snap)...)
 	insights = append(insights, checkIdleInTransaction(snap)...)
+	insights = append(insights, checkBlockingLocks(snap)...)
 	insights = append(insights, checkSlowQueries(snap)...)
 	insights = append(insights, checkClientConcentration(snap)...)
 	insights = append(insights, checkXIDWraparound(snap)...)
@@ -213,19 +214,134 @@ func checkMissingIndexes(snap *model.Snapshot) []Insight {
 	return insights
 }
 
+// snapNow is the snapshot's collection time (falls back to now for tests).
+func snapNow(snap *model.Snapshot) time.Time {
+	if snap.CollectedAt.IsZero() {
+		return time.Now()
+	}
+	return snap.CollectedAt
+}
+
 func checkIdleInTransaction(snap *model.Snapshot) []Insight {
+	t := ActiveThresholds
+	now := snapNow(snap)
 	count := 0
+	var worst model.Activity
+	var worstAge time.Duration
 	for _, a := range snap.Activities {
-		if a.State == "idle in transaction" || a.State == "idle in transaction (aborted)" {
-			count++
+		if !strings.HasPrefix(a.State, "idle in transaction") || a.StateChange.IsZero() {
+			continue
+		}
+		age := now.Sub(a.StateChange)
+		if age < t.IdleInTxWarn {
+			continue
+		}
+		count++
+		if age > worstAge {
+			worst, worstAge = a, age
 		}
 	}
-	if count > 3 {
-		return []Insight{{Warning, "connections", "Multiple idle-in-transaction sessions",
-			fmt.Sprintf("%d sessions are idle in transaction, holding locks and preventing vacuum.", count),
-			"Check application code for uncommitted transactions. Consider setting idle_in_transaction_session_timeout."}}
+	if count == 0 {
+		return nil
 	}
-	return nil
+	sev := Warning
+	if worstAge >= t.IdleInTxCritical {
+		sev = Critical
+	}
+	app := worst.ApplicationName
+	if app == "" {
+		app = worst.UserName
+	}
+	return []Insight{{sev, "connections",
+		fmt.Sprintf("%d session(s) idle in transaction", count),
+		fmt.Sprintf("Longest: pid %d (%s) idle in transaction for %s. Open transactions hold locks and stop vacuum from removing dead rows.",
+			worst.PID, app, worstAge.Round(time.Second)),
+		"Fix the application to commit or roll back promptly; end this session with SELECT pg_terminate_backend(pid); set idle_in_transaction_session_timeout."}}
+}
+
+// checkBlockingLocks reports sessions that block others, rooted at the
+// session that holds the lock without itself waiting.
+func checkBlockingLocks(snap *model.Snapshot) []Insight {
+	const minWait = 5 * time.Second
+	waitingOn := map[int][]int{} // waiter -> blockers
+	longest := map[int]time.Duration{}
+	for _, l := range snap.Locks {
+		if l.Granted || len(l.BlockedByPIDs) == 0 || l.Duration < minWait {
+			continue
+		}
+		if _, seen := waitingOn[l.PID]; !seen {
+			waitingOn[l.PID] = l.BlockedByPIDs
+			longest[l.PID] = l.Duration
+		}
+	}
+	if len(waitingOn) == 0 {
+		return nil
+	}
+	// Attribute every waiter to the root blocker(s) of its chain.
+	victims := map[int]map[int]bool{}
+	maxWait := map[int]time.Duration{}
+	var rootsOf func(pid int, seen map[int]bool) []int
+	rootsOf = func(pid int, seen map[int]bool) []int {
+		if seen[pid] {
+			return nil
+		}
+		seen[pid] = true
+		blockers, waiting := waitingOn[pid]
+		if !waiting {
+			return []int{pid}
+		}
+		var out []int
+		for _, b := range blockers {
+			out = append(out, rootsOf(b, seen)...)
+		}
+		return out
+	}
+	for w := range waitingOn {
+		for _, r := range rootsOf(w, map[int]bool{}) {
+			if r == w {
+				continue
+			}
+			if victims[r] == nil {
+				victims[r] = map[int]bool{}
+			}
+			victims[r][w] = true
+			if longest[w] > maxWait[r] {
+				maxWait[r] = longest[w]
+			}
+		}
+	}
+	act := map[int]model.Activity{}
+	for _, a := range snap.Activities {
+		act[a.PID] = a
+	}
+	roots := make([]int, 0, len(victims))
+	for r := range victims {
+		roots = append(roots, r)
+	}
+	sort.Ints(roots)
+
+	var insights []Insight
+	for _, r := range roots {
+		a := act[r]
+		sev := Warning
+		if maxWait[r] >= time.Minute {
+			sev = Critical
+		}
+		app := a.ApplicationName
+		if app == "" {
+			app = a.UserName
+		}
+		state := a.State
+		if state == "" {
+			state = "unknown state"
+		}
+		insights = append(insights, Insight{sev, "locks",
+			fmt.Sprintf("Session %d is blocking %d other session(s)", r, len(victims[r])),
+			fmt.Sprintf("pid %d (%s, %s) holds locks others wait on; the longest wait is %s. Its query: %s",
+				r, app, state, maxWait[r].Round(time.Second), shortQuery(a.Query, 80)),
+			"See the Locks view for the chain. If the blocker is idle in transaction, end it with SELECT pg_terminate_backend(pid) and fix the application; set lock_timeout to bound waits."})
+	}
+	return insights
 }
 
 func checkSlowQueries(snap *model.Snapshot) []Insight {
@@ -663,8 +779,15 @@ func checkWaitEvents(snap *model.Snapshot) []Insight {
 		}
 	}
 
+	keys := make([]string, 0, len(waitCounts))
+	for k := range waitCounts {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+
 	var insights []Insight
-	for key, count := range waitCounts {
+	for _, key := range keys {
+		count := waitCounts[key]
 		if count < 3 {
 			continue
 		}

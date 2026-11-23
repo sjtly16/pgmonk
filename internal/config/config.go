@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 )
 
@@ -18,6 +19,90 @@ type Config struct {
 
 	// Analyzer thresholds.
 	Thresholds Thresholds `json:"thresholds"`
+
+	// AI insights from a local LLM (off by default).
+	AI AIConfig `json:"ai"`
+}
+
+// AIConfig configures AI insights. pg-monk talks to a model server you run:
+// Ollama natively, or anything OpenAI-compatible (LM Studio, llama.cpp,
+// vLLM, ...). Environment variables PGMONK_AI_PROVIDER, PGMONK_AI_URL,
+// PGMONK_AI_MODEL and PGMONK_AI_API_KEY (and OLLAMA_HOST) override the file.
+type AIConfig struct {
+	// Enabled turns AI insights on without passing --ai.
+	Enabled bool `json:"enabled"`
+	// Provider is "ollama" (default) or "openai" for any OpenAI-compatible server.
+	Provider string `json:"provider,omitempty"`
+	// BaseURL of the server. Defaults: http://localhost:11434 (ollama),
+	// http://localhost:1234/v1 (openai — LM Studio's default).
+	BaseURL string `json:"base_url,omitempty"`
+	// Model name, e.g. "qwen2.5:7b".
+	Model string `json:"model,omitempty"`
+	// APIKey is sent as a Bearer token (openai provider only; usually unneeded locally).
+	APIKey string `json:"api_key,omitempty"`
+	// NumCtx is the context window requested from Ollama (default 8192).
+	NumCtx int `json:"num_ctx,omitempty"`
+	// KeepAlive keeps the model (and its prompt cache) loaded between analyses.
+	KeepAlive string `json:"keep_alive,omitempty"`
+	// Timeout per analysis (default "5m"; CPU-only inference is slow).
+	Timeout    time.Duration `json:"-"`
+	TimeoutStr string        `json:"timeout,omitempty"`
+}
+
+// AI provider defaults.
+const (
+	DefaultAIModel     = "qwen2.5:7b"
+	DefaultOllamaURL   = "http://localhost:11434"
+	DefaultOpenAIURL   = "http://localhost:1234/v1"
+	DefaultAINumCtx    = 8192
+	DefaultAIKeepAlive = "30m"
+	DefaultAITimeout   = 5 * time.Minute
+)
+
+// ApplyAIDefaults fills unset AI fields and applies environment overrides.
+func (c *Config) ApplyAIDefaults() {
+	a := &c.AI
+	if v := os.Getenv("PGMONK_AI_PROVIDER"); v != "" {
+		a.Provider = v
+	}
+	if v := os.Getenv("PGMONK_AI_URL"); v != "" {
+		a.BaseURL = v
+	}
+	if v := os.Getenv("PGMONK_AI_MODEL"); v != "" {
+		a.Model = v
+	}
+	if v := os.Getenv("PGMONK_AI_API_KEY"); v != "" {
+		a.APIKey = v
+	}
+	if a.Provider == "" {
+		a.Provider = "ollama"
+	}
+	if a.BaseURL == "" {
+		switch a.Provider {
+		case "openai":
+			a.BaseURL = DefaultOpenAIURL
+		default:
+			a.BaseURL = DefaultOllamaURL
+			if h := os.Getenv("OLLAMA_HOST"); h != "" {
+				if !strings.Contains(h, "://") {
+					h = "http://" + h
+				}
+				a.BaseURL = h
+			}
+		}
+	}
+	if a.Model == "" {
+		a.Model = DefaultAIModel
+	}
+	if a.NumCtx == 0 {
+		a.NumCtx = DefaultAINumCtx
+	}
+	if a.KeepAlive == "" {
+		a.KeepAlive = DefaultAIKeepAlive
+	}
+	if a.Timeout == 0 {
+		a.Timeout = DefaultAITimeout
+	}
 }
 
 // Thresholds holds configurable analyzer rule thresholds.
@@ -146,6 +231,11 @@ func (c *Config) resolveDurations() {
 			c.Interval = d
 		}
 	}
+	if c.AI.TimeoutStr != "" {
+		if d, err := time.ParseDuration(c.AI.TimeoutStr); err == nil {
+			c.AI.Timeout = d
+		}
+	}
 	t := &c.Thresholds
 	if t.IdleInTxWarnStr != "" {
 		if d, err := time.ParseDuration(t.IdleInTxWarnStr); err == nil {
@@ -182,6 +272,10 @@ func (c *Config) resolveDurations() {
 // WriteDefault writes a default config file to path as a reference.
 func WriteDefault(path string) error {
 	cfg := DefaultConfig()
+	cfg.AI = AIConfig{
+		Provider: "ollama", BaseURL: DefaultOllamaURL, Model: DefaultAIModel,
+		NumCtx: DefaultAINumCtx, KeepAlive: DefaultAIKeepAlive, TimeoutStr: "5m",
+	}
 	data, err := json.MarshalIndent(cfg, "", "  ")
 	if err != nil {
 		return err

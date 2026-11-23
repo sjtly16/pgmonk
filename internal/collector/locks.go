@@ -13,7 +13,7 @@ func (c *Collector) collectLocks(ctx context.Context) ([]model.LockInfo, error) 
 	// pg_locks.waitstart exists from PG 14; fall back to the backend's
 	// state_change (when it started waiting) on older servers.
 	waitStart := "a.state_change"
-	if c.serverInfo.VersionNum >= 140000 {
+	if c.has("pg_locks", "waitstart", 140000) {
 		waitStart = "COALESCE(l.waitstart, a.state_change)"
 	}
 

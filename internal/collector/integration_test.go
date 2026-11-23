@@ -94,6 +94,12 @@ func TestCollectAgainstLiveServer(t *testing.T) {
 
 	info := coll.ServerInfo()
 	t.Logf("server %d, pg_stat_statements=%v", info.VersionNum, info.HasStatStatements)
+	if !info.Catalog.Has("pg_stat_activity", "pid") || !info.Catalog.Has("pg_locks", "granted") {
+		t.Fatalf("catalog not populated: %d views", len(info.Catalog))
+	}
+	if info.HasStatStatements && !info.Catalog.HasView("pg_stat_statements") {
+		t.Error("pg_stat_statements installed but missing from catalog")
+	}
 
 	// Give the waiter a moment to actually start waiting, then collect twice
 	// so rate-based metrics are populated.
@@ -173,6 +179,24 @@ func TestCollectAgainstLiveServer(t *testing.T) {
 		}
 		if a.Duration > 24*time.Hour {
 			t.Errorf("pid %d has implausible duration %v (NULL timestamp?)", a.PID, a.Duration)
+		}
+	}
+
+	if len(snap.Settings) < 20 {
+		t.Errorf("expected diagnostic settings, got %d", len(snap.Settings))
+	}
+
+	// Suggested-SQL verification: valid queries plan, invalid ones report the
+	// server's error, and anything that isn't a single SELECT is refused.
+	if err := coll.ExplainReadOnly(ctx, "SELECT relname, n_dead_tup FROM pg_stat_user_tables ORDER BY 2 DESC LIMIT 5;"); err != nil {
+		t.Errorf("valid query rejected: %v", err)
+	}
+	if err := coll.ExplainReadOnly(ctx, "SELECT no_such_column FROM pg_stat_activity"); err == nil {
+		t.Error("query with a non-existent column was accepted")
+	}
+	for _, bad := range []string{"DELETE FROM pgmonk_it", "SELECT 1; DROP TABLE pgmonk_it", "VACUUM pgmonk_it"} {
+		if err := coll.ExplainReadOnly(ctx, bad); err != collector.ErrNotReadOnly {
+			t.Errorf("%q: want ErrNotReadOnly, got %v", bad, err)
 		}
 	}
 

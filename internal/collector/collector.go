@@ -96,10 +96,7 @@ func (c *Collector) queryRow(ctx context.Context, sql string, args ...any) pgx.R
 // leaderPIDColumn returns a select expression for pg_stat_activity.leader_pid,
 // which only exists from PostgreSQL 13.
 func (c *Collector) leaderPIDColumn() string {
-	if c.serverInfo.VersionNum >= 130000 {
-		return "COALESCE(leader_pid, 0)"
-	}
-	return "0"
+	return c.colOr("pg_stat_activity", "leader_pid", 130000, "COALESCE(leader_pid, 0)", "0")
 }
 
 // ServerInfo returns the detected server metadata.
@@ -193,6 +190,11 @@ func (c *Collector) collect(ctx context.Context) (*model.Snapshot, error) {
 	}
 	c.prevStats = absStats
 	c.prevTime = time.Now()
+
+	// Diagnostic configuration (best effort).
+	if settings, err := c.collectSettings(ctx); err == nil {
+		snap.Settings = settings
+	}
 
 	// Active sessions.
 	activities, err := c.collectActivities(ctx)
