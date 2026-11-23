@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
-	"github.com/shashank/pgmonk/internal/model"
+	"github.com/sjtly16/pgmonk/internal/model"
 )
 
 // renderSessions renders the active sessions view.

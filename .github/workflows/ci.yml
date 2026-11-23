@@ -15,7 +15,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        go-version: ['1.22', '1.23']
+        go-version: ['1.22', 'stable']
 
     steps:
       - uses: actions/checkout@v4
@@ -35,7 +35,7 @@ jobs:
         run: go test -race -coverprofile=coverage.out -covermode=atomic ./...
 
       - name: Upload coverage
-        if: matrix.go-version == '1.23'
+        if: matrix.go-version == 'stable'
         uses: codecov/codecov-action@v4
         with:
           files: coverage.out
@@ -50,13 +50,47 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.23'
+          go-version: 'stable'
 
       - name: golangci-lint
-        uses: golangci/golangci-lint-action@v6
+        uses: golangci/golangci-lint-action@v8
         with:
-          version: latest
+          version: v2.15
           args: --timeout=5m
+
+  integration:
+    name: Integration (PostgreSQL ${{ matrix.pg }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        pg: ['12', '13', '14', '15', '16', '17', '18']
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: 'stable'
+
+      # Started with docker run (not `services:`) so we can pass server flags.
+      - name: Start PostgreSQL ${{ matrix.pg }}
+        run: |
+          docker run -d --name pg -p 5432:5432 -e POSTGRES_PASSWORD=ci \
+            postgres:${{ matrix.pg }} -c shared_preload_libraries=pg_stat_statements
+          for i in $(seq 1 30); do
+            docker exec pg pg_isready -U postgres && break
+            sleep 1
+          done
+          sleep 2
+
+      - name: Integration tests
+        env:
+          PGMONK_TEST_DSN: postgresql://postgres:ci@localhost:5432/postgres?sslmode=disable
+        run: go test -tags integration -count=1 -v ./internal/collector/
+
+      - name: diagnose smoke test
+        run: go run ./cmd/pg-monk diagnose "postgresql://postgres:ci@localhost:5432/postgres?sslmode=disable"
 
   build-matrix:
     name: Build (${{ matrix.os }})
@@ -70,10 +104,10 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.23'
+          go-version: 'stable'
 
       - name: Build
-        run: go build -o pg-monk ./cmd/pgmonk
+        run: go build -o pg-monk ./cmd/pg-monk
 
       - name: Verify binary
         run: ./pg-monk --version

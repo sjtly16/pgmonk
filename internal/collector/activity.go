@@ -4,12 +4,12 @@ import (
 	"context"
 	"time"
 
-	"github.com/shashank/pgmonk/internal/model"
+	"github.com/sjtly16/pgmonk/internal/model"
 )
 
 // collectActivities gathers per-session data from pg_stat_activity.
 func (c *Collector) collectActivities(ctx context.Context) ([]model.Activity, error) {
-	rows, err := c.pool.Query(ctx, `
+	rows, err := c.query(ctx, `
 		SELECT
 			pid,
 			COALESCE(datname, ''),
@@ -20,11 +20,11 @@ func (c *Collector) collectActivities(ctx context.Context) ([]model.Activity, er
 			COALESCE(wait_event_type, ''),
 			COALESCE(wait_event, ''),
 			COALESCE(query, ''),
-			COALESCE(query_start, '1970-01-01'::timestamptz),
-			COALESCE(backend_start, '1970-01-01'::timestamptz),
-			COALESCE(xact_start, '1970-01-01'::timestamptz),
-			COALESCE(state_change, '1970-01-01'::timestamptz),
-			COALESCE(leader_pid, 0),
+			query_start,
+			backend_start,
+			xact_start,
+			state_change,
+			`+c.leaderPIDColumn()+`,
 			COALESCE(backend_type, ''),
 			COALESCE(backend_xid::text, ''),
 			COALESCE(backend_xmin::text, '')
@@ -49,6 +49,9 @@ func (c *Collector) collectActivities(ctx context.Context) ([]model.Activity, er
 	var activities []model.Activity
 	for rows.Next() {
 		var a model.Activity
+		// Timestamps are NULL for many background processes; leave those as
+		// the zero time.Time so callers can rely on IsZero().
+		var queryStart, backendStart, xactStart, stateChange *time.Time
 		err := rows.Scan(
 			&a.PID,
 			&a.DatabaseName,
@@ -59,10 +62,10 @@ func (c *Collector) collectActivities(ctx context.Context) ([]model.Activity, er
 			&a.WaitEventType,
 			&a.WaitEvent,
 			&a.Query,
-			&a.QueryStart,
-			&a.BackendStart,
-			&a.XactStart,
-			&a.StateChange,
+			&queryStart,
+			&backendStart,
+			&xactStart,
+			&stateChange,
 			&a.LeaderPID,
 			&a.BackendType,
 			&a.BackendXID,
@@ -71,10 +74,21 @@ func (c *Collector) collectActivities(ctx context.Context) ([]model.Activity, er
 		if err != nil {
 			continue
 		}
+		a.QueryStart = derefTime(queryStart)
+		a.BackendStart = derefTime(backendStart)
+		a.XactStart = derefTime(xactStart)
+		a.StateChange = derefTime(stateChange)
 		if !a.QueryStart.IsZero() {
 			a.Duration = now.Sub(a.QueryStart)
 		}
 		activities = append(activities, a)
 	}
-	return activities, nil
+	return activities, rows.Err()
+}
+
+func derefTime(t *time.Time) time.Time {
+	if t == nil {
+		return time.Time{}
+	}
+	return *t
 }

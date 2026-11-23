@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
-	"github.com/shashank/pgmonk/internal/model"
+	"github.com/sjtly16/pgmonk/internal/model"
 )
 
 // renderQueries renders the top queries view.
@@ -78,8 +78,14 @@ func (m Model) renderQueries() string {
 		q := queries[i]
 		isSelected := i == m.selectedRow
 
+		// Statements that touch no shared buffers (SET, BEGIN, ...) have no
+		// meaningful hit ratio.
 		cacheStr := fmt.Sprintf("%.0f%%", q.CacheHitRatio)
 		cacheSt := ratioStyle(q.CacheHitRatio)
+		if q.SharedBlksHit+q.SharedBlksRead == 0 {
+			cacheStr = "-"
+			cacheSt = lipgloss.NewStyle().Foreground(colorMuted)
+		}
 
 		// Plan time percentage.
 		planPct := 0.0

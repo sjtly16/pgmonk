@@ -90,7 +90,7 @@ func DefaultConfig() *Config {
 			IdleInTxCritical:          5 * time.Minute,
 			IdleInTxCriticalStr:       "5m",
 			XIDWarn:                   500_000_000,
-			XIDCritical:              1_500_000_000,
+			XIDCritical:               1_500_000_000,
 			ReplicationLagWarn:        30 * time.Second,
 			ReplicationLagWarnStr:     "30s",
 			ReplicationLagCritical:    5 * time.Minute,

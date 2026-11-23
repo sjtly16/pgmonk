@@ -5,12 +5,21 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/shashank/pgmonk/internal/model"
+	"github.com/sjtly16/pgmonk/internal/model"
 )
 
 // collectLocks gathers active locks and identifies blocking chains.
 func (c *Collector) collectLocks(ctx context.Context) ([]model.LockInfo, error) {
-	rows, err := c.pool.Query(ctx, `
+	// pg_locks.waitstart exists from PG 14; fall back to the backend's
+	// state_change (when it started waiting) on older servers.
+	waitStart := "a.state_change"
+	if c.serverInfo.VersionNum >= 140000 {
+		waitStart = "COALESCE(l.waitstart, a.state_change)"
+	}
+
+	// pg_blocking_pids() is comparatively expensive, so only call it for
+	// locks that are actually waiting.
+	rows, err := c.query(ctx, `
 		SELECT
 			l.pid,
 			l.locktype,
@@ -18,8 +27,8 @@ func (c *Collector) collectLocks(ctx context.Context) ([]model.LockInfo, error) 
 			COALESCE(c.relname, ''),
 			l.mode,
 			l.granted,
-			a.wait_start,
-			COALESCE(pg_blocking_pids(l.pid), ARRAY[]::int[]),
+			CASE WHEN l.granted THEN NULL ELSE `+waitStart+` END,
+			CASE WHEN l.granted THEN ARRAY[]::int[] ELSE pg_blocking_pids(l.pid) END,
 			COALESCE(a.query, ''),
 			COALESCE(a.usename, '')
 		FROM pg_locks l
@@ -30,7 +39,7 @@ func (c *Collector) collectLocks(ctx context.Context) ([]model.LockInfo, error) 
 		ORDER BY l.granted ASC, a.query_start ASC
 	`)
 	if err != nil {
-		// pg_blocking_pids might not be available on older versions.
+		// pg_blocking_pids is unavailable before PG 9.6.
 		return c.collectLocksLegacy(ctx)
 	}
 	defer rows.Close()
@@ -53,19 +62,18 @@ func (c *Collector) collectLocks(ctx context.Context) ([]model.LockInfo, error) 
 		if err != nil {
 			continue
 		}
-		// Compute lock duration from wait_start.
 		if li.WaitStart != nil && !li.Granted {
 			li.Duration = time.Since(*li.WaitStart)
 		}
 		locks = append(locks, li)
 	}
 
-	return locks, nil
+	return locks, rows.Err()
 }
 
 // collectLocksLegacy is a fallback for PostgreSQL versions without pg_blocking_pids.
 func (c *Collector) collectLocksLegacy(ctx context.Context) ([]model.LockInfo, error) {
-	rows, err := c.pool.Query(ctx, `
+	rows, err := c.query(ctx, `
 		SELECT
 			l.pid,
 			l.locktype,
@@ -111,7 +119,7 @@ func (c *Collector) collectLocksLegacy(ctx context.Context) ([]model.LockInfo, e
 
 // collectReplication gathers replication status from pg_stat_replication.
 func (c *Collector) collectReplication(ctx context.Context) ([]model.ReplicationStat, error) {
-	rows, err := c.pool.Query(ctx, `
+	rows, err := c.query(ctx, `
 		SELECT
 			pid,
 			COALESCE(usename, ''),

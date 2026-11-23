@@ -6,8 +6,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/shashank/pgmonk/internal/model"
+	"github.com/sjtly16/pgmonk/internal/model"
 )
 
 // Collector gathers PostgreSQL metrics at regular intervals.
@@ -50,6 +51,11 @@ func New(ctx context.Context, dsn string, interval time.Duration) (*Collector, e
 	config.MaxConns = 3
 	config.MinConns = 1
 
+	// Identify ourselves in pg_stat_activity unless the DSN already does.
+	if _, ok := config.ConnConfig.RuntimeParams["application_name"]; !ok {
+		config.ConnConfig.RuntimeParams["application_name"] = "pg-monk"
+	}
+
 	pool, err := pgxpool.NewWithConfig(ctx, config)
 	if err != nil {
 		return nil, fmt.Errorf("unable to connect to database: %w", err)
@@ -73,6 +79,27 @@ func New(ctx context.Context, dsn string, interval time.Duration) (*Collector, e
 	c.serverInfo = info
 
 	return c, nil
+}
+
+// selfTag prefixes every query pg-monk runs so its own monitoring traffic can
+// be excluded from pg_stat_statements results (which keep leading comments).
+const selfTag = "/* pg-monk */ "
+
+func (c *Collector) query(ctx context.Context, sql string, args ...any) (pgx.Rows, error) {
+	return c.pool.Query(ctx, selfTag+sql, args...)
+}
+
+func (c *Collector) queryRow(ctx context.Context, sql string, args ...any) pgx.Row {
+	return c.pool.QueryRow(ctx, selfTag+sql, args...)
+}
+
+// leaderPIDColumn returns a select expression for pg_stat_activity.leader_pid,
+// which only exists from PostgreSQL 13.
+func (c *Collector) leaderPIDColumn() string {
+	if c.serverInfo.VersionNum >= 130000 {
+		return "COALESCE(leader_pid, 0)"
+	}
+	return "0"
 }
 
 // ServerInfo returns the detected server metadata.

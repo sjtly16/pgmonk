@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/charmbracelet/lipgloss"
-	"github.com/shashank/pgmonk/internal/model"
+	"github.com/sjtly16/pgmonk/internal/model"
 )
 
 // dashSectionTitle renders a cyan uppercase section label with left padding.
@@ -129,7 +129,7 @@ func (m Model) renderConnectionsSection(o model.Overview, w int) string {
 	const pctW = 6
 	labelStr := fmt.Sprintf("%d / %d connections used", o.TotalConnections, o.MaxConnections)
 	pctStr := fmt.Sprintf("%.0f%%", connPct)
-	line1 := lipgloss.NewStyle().Foreground(colorText).Bold(true).Width(innerW - pctW).Render(labelStr) +
+	line1 := lipgloss.NewStyle().Foreground(colorText).Bold(true).Width(innerW-pctW).Render(labelStr) +
 		lipgloss.NewStyle().Foreground(pctColor).Bold(true).Width(pctW).Align(lipgloss.Right).Render(pctStr)
 	bar := progressBar(o.TotalConnections, o.MaxConnections, innerW, barColor)
 	dots := fmt.Sprintf("%s active: %d   %s idle: %d   %s idle-in-tx: %d",
@@ -365,6 +365,8 @@ func formatNumber(n int64) string {
 
 func formatQueryDuration(d time.Duration) string {
 	switch {
+	case d == 0:
+		return fmt.Sprintf("%5s", "-")
 	case d >= time.Minute:
 		return fmt.Sprintf("%5.1fm", d.Minutes())
 	case d >= time.Second:

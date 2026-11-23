@@ -3,12 +3,12 @@ package collector
 import (
 	"context"
 
-	"github.com/shashank/pgmonk/internal/model"
+	"github.com/sjtly16/pgmonk/internal/model"
 )
 
 // collectTables gathers per-table statistics from pg_stat_user_tables.
 func (c *Collector) collectTables(ctx context.Context) ([]model.TableStat, error) {
-	rows, err := c.pool.Query(ctx, `
+	rows, err := c.query(ctx, `
 		SELECT
 			schemaname,
 			relname,
@@ -23,7 +23,7 @@ func (c *Collector) collectTables(ctx context.Context) ([]model.TableStat, error
 			COALESCE(n_live_tup, 0),
 			COALESCE(n_dead_tup, 0),
 			COALESCE(n_mod_since_analyze, 0),
-			COALESCE(n_ins_since_vacuum, 0),
+			`+c.insSinceVacuumColumn()+`,
 			last_vacuum,
 			last_autovacuum,
 			last_analyze,
@@ -83,7 +83,7 @@ func (c *Collector) collectTables(ctx context.Context) ([]model.TableStat, error
 
 // collectIndexes gathers per-index statistics from pg_stat_user_indexes.
 func (c *Collector) collectIndexes(ctx context.Context) ([]model.IndexStat, error) {
-	rows, err := c.pool.Query(ctx, `
+	rows, err := c.query(ctx, `
 		SELECT
 			s.schemaname,
 			s.relname,
@@ -119,4 +119,13 @@ func (c *Collector) collectIndexes(ctx context.Context) ([]model.IndexStat, erro
 		indexes = append(indexes, idx)
 	}
 	return indexes, nil
+}
+
+// insSinceVacuumColumn returns pg_stat_user_tables.n_ins_since_vacuum, which
+// was added in PostgreSQL 13.
+func (c *Collector) insSinceVacuumColumn() string {
+	if c.serverInfo.VersionNum >= 130000 {
+		return "COALESCE(n_ins_since_vacuum, 0)"
+	}
+	return "0::bigint"
 }

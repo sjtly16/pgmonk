@@ -5,12 +5,12 @@ import (
 	"sort"
 	"time"
 
-	"github.com/shashank/pgmonk/internal/model"
+	"github.com/sjtly16/pgmonk/internal/model"
 )
 
 // collectClients gathers per-client-address aggregated metrics and per-backend thread details.
 func (c *Collector) collectClients(ctx context.Context) ([]model.ClientStat, error) {
-	rows, err := c.pool.Query(ctx, `
+	rows, err := c.query(ctx, `
 		SELECT
 			pid,
 			COALESCE(client_addr::text, 'local'),
@@ -26,9 +26,13 @@ func (c *Collector) collectClients(ctx context.Context) ([]model.ClientStat, err
 			xact_start,
 			COALESCE(backend_start, now()),
 			COALESCE(state_change, now()),
-			COALESCE(leader_pid, 0)
+			`+c.leaderPIDColumn()+`
 		FROM pg_stat_activity
 		WHERE pid != pg_backend_pid()
+			-- Only real client connections; background processes
+			-- (checkpointer, walwriter, autovacuum, parallel workers, ...)
+			-- have no client and would otherwise be lumped under "local".
+			AND COALESCE(backend_type, 'client backend') = 'client backend'
 		ORDER BY client_addr, backend_start
 	`)
 	if err != nil {

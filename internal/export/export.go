@@ -7,7 +7,7 @@ import (
 	"io"
 	"time"
 
-	"github.com/shashank/pgmonk/internal/model"
+	"github.com/sjtly16/pgmonk/internal/model"
 )
 
 // WriteJSON writes the snapshot as pretty-printed JSON.

@@ -7,16 +7,20 @@ before:
     - go mod tidy
 
 builds:
-  - main: ./cmd/pgmonk
+  - main: ./cmd/pg-monk
     binary: pg-monk
     env:
       - CGO_ENABLED=0
     goos:
       - linux
       - darwin
+      - windows
     goarch:
       - amd64
       - arm64
+    ignore:
+      - goos: windows
+        goarch: arm64
     ldflags:
       - -s -w
       - -X main.version={{.Version}}
@@ -24,8 +28,15 @@ builds:
       - -X main.date={{.Date}}
 
 archives:
-  - format: tar.gz
-    name_template: "{{ .ProjectName }}_{{ .Os }}_{{ .Arch }}"
+  - formats: [tar.gz]
+    format_overrides:
+      - goos: windows
+        formats: [zip]
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    files:
+      - LICENSE
+      - README.md
+
 checksum:
   name_template: "checksums.txt"
 
@@ -37,14 +48,7 @@ changelog:
       - "^test:"
       - "^ci:"
 
-brews:
-  - repository:
-      owner: shashank
-      name: homebrew-pgmonk
-    homepage: "https://github.com/shashank/pg-monk"
-    description: "Real-time PostgreSQL performance dashboard for your terminal"
-    license: "MIT"
-    install: |
-      bin.install "pg-monk"
-    test: |
-      system "#{bin}/pg-monk", "--version"
+release:
+  github:
+    owner: sjtly16
+    name: pgmonk

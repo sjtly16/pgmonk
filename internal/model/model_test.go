@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/shashank/pgmonk/internal/model"
+	"github.com/sjtly16/pgmonk/internal/model"
 )
 
 func TestSnapshot_ZeroValue(t *testing.T) {

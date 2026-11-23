@@ -6,7 +6,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/shashank/pgmonk/internal/model"
+	"github.com/sjtly16/pgmonk/internal/model"
 )
 
 // View represents a TUI screen tab.
@@ -48,7 +48,6 @@ type Model struct {
 	showDetail     bool
 	scrollOffset   int
 	selectedRow    int
-
 }
 
 // NewModel creates a new TUI model.
@@ -604,11 +603,18 @@ func (m Model) renderHelpModal() string {
 
 // --- Utility functions ---
 
+// truncate collapses whitespace (newlines, indentation) into single spaces
+// and shortens s to at most max runes, appending "..." when cut.
 func truncate(s string, max int) string {
-	if len(s) <= max {
+	s = strings.Join(strings.Fields(s), " ")
+	r := []rune(s)
+	if len(r) <= max {
 		return s
 	}
-	return s[:max-3] + "..."
+	if max <= 3 {
+		return string(r[:max])
+	}
+	return string(r[:max-3]) + "..."
 }
 
 func formatBytes(bytes int64) string {
