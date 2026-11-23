@@ -4,8 +4,14 @@
 
 Think `htop`, but for Postgres. Zero dependencies, single binary, instant insights.
 
+[![CI](https://github.com/sjtly16/pgmonk/actions/workflows/ci.yml/badge.svg)](https://github.com/sjtly16/pgmonk/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/sjtly16/pgmonk)](https://github.com/sjtly16/pgmonk/releases/latest)
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
 ![Go](https://img.shields.io/badge/go-1.22+-00ADD8.svg)
+
+![pg-monk demo](docs/media/demo.gif)
+
+<sub>▶ Full-resolution video: [docs/media/demo.mp4](docs/media/demo.mp4) · recorded against the [demo database](scripts/demo/) with a deliberately unhealthy workload.</sub>
 
 ---
 
@@ -19,7 +25,7 @@ Think `htop`, but for Postgres. Zero dependencies, single binary, instant insigh
 - **Lock monitor** — active locks with blocking chain visualization and lock duration
 - **Per-client drill-down** — aggregated connection metrics per client IP, with per-backend thread detail
 - **20+ PostgreSQL data sources** — pg_stat_wal, pg_stat_io, pg_stat_archiver, pg_stat_checkpointer, pg_stat_replication, and more
-- **Version-aware collection** — automatically adapts queries for PG 12–17+, gating PG 14+/16+/17+ features
+- **Version-aware collection** — supports PostgreSQL 12 through 19, gating PG 13+/14+/15+/16+/17+ features; every major version is integration-tested in CI
 - **Snapshot export** — JSON/CSV one-shot reports for automation
 - **Health diagnostics** — CLI `diagnose` command with severity-ranked insights
 - **Configurable thresholds** — customize analyzer sensitivity via `~/.pgmonk.json`
@@ -32,14 +38,30 @@ Think `htop`, but for Postgres. Zero dependencies, single binary, instant insigh
 
 ### Install
 
-```bash
-# From source
-go install github.com/sjtly16/pg-monk/cmd/pgmonk@latest
+**Prebuilt binaries** for Linux, macOS and Windows (amd64/arm64) are on the [releases page](https://github.com/sjtly16/pgmonk/releases/latest):
 
-# Or clone and build
-git clone https://github.com/sjtly16/pg-monk.git
-cd pg-monk && make build
+```bash
+# macOS (Apple Silicon) — swap darwin_arm64 for linux_amd64, linux_arm64, darwin_amd64, ...
+VERSION=0.1.0
+curl -sSL "https://github.com/sjtly16/pgmonk/releases/download/v${VERSION}/pg-monk_${VERSION}_darwin_arm64.tar.gz" | tar xz
+sudo mv pg-monk /usr/local/bin/
 ```
+
+**With Go** (1.22+):
+
+```bash
+go install github.com/sjtly16/pgmonk/cmd/pg-monk@latest
+```
+
+**From source:**
+
+```bash
+git clone https://github.com/sjtly16/pgmonk.git
+cd pgmonk && make build
+```
+
+> **Try it without a database of your own:** `make demo-db && make demo-load`, then in another terminal
+> `pg-monk postgresql://postgres:demo@localhost:55433/shop`. See [scripts/demo](scripts/demo/).
 
 ### Connect
 
@@ -67,6 +89,60 @@ pg-monk
 | `Esc` / `Backspace` | Collapse back to summary |
 | `j` / `k` or `↑` / `↓` | Navigate in expanded views |
 | `q` / `Ctrl+C` | Quit |
+
+---
+
+## Dashboard Views
+
+### 1. Overview Dashboard
+
+Connection gauge, throughput, cache hit ratio, WAL stats, checkpoints, XID wraparound age, and the longest-running active queries.
+
+![Dashboard](docs/media/dashboard.png)
+
+### 2. Active Sessions
+
+Live `pg_stat_activity` — color-coded by state (active, idle, idle in transaction, waiting) with wait events, application, duration and query. Press `Enter` for a detail panel, `s` to change sort.
+
+![Sessions](docs/media/sessions.png)
+
+### 3. Top Queries *(requires pg_stat_statements)*
+
+Sortable by total/mean time, calls and rows, with per-query cache hit ratio, planning time share and temp block usage. Version-aware: WAL records (PG 13+), JIT stats (PG 15+). pg-monk's own monitoring queries are filtered out.
+
+![Top queries](docs/media/queries.png)
+
+### 4. Table Health
+
+Dead tuples, live rows, sequential vs index scans, size and last vacuum — sortable, with tables that need vacuuming highlighted.
+
+![Tables](docs/media/tables.png)
+
+### 5. Lock Monitor
+
+Blocking chains built from `pg_blocking_pids()`: the session holding the lock (often one that is *idle in transaction*) at the root, with everything queued behind it nested underneath — plus how long each has been waiting and on what.
+
+![Locks](docs/media/locks.png)
+
+### 6. Clients
+
+Connections aggregated per client address — active / idle / idle-in-tx / waiting counts and longest query and transaction. Press `Enter` to drill into individual backends.
+
+![Clients](docs/media/clients.png)
+
+### 7. Insights
+
+27 rule-based checks run on every refresh, ranked critical → warning → info, each with a concrete suggestion. Thresholds are configurable (see [Configuration](#configuration)).
+
+![Insights](docs/media/insights.png)
+
+The same analysis is available non-interactively — handy for cron jobs and CI:
+
+```bash
+pg-monk diagnose -H localhost -U monitor -d mydb
+```
+
+![Diagnose](docs/media/diagnose.png)
 
 ---
 
@@ -140,11 +216,13 @@ track_activity_query_size = 4096    # default: 1024, increase to capture longer 
 
 ### 5. PostgreSQL Version-Gated Features
 
+Supported servers: **PostgreSQL 12 – 19** (older, end-of-life versions are untested).
+
 pg-monk automatically detects your PostgreSQL version and enables features accordingly:
 
 | Feature | Minimum PG Version | Configuration Needed |
 |---------|-------------------|---------------------|
-| Core dashboard, sessions, locks, tables | 9.6+ | None |
+| Core dashboard, sessions, locks, tables | 12+ | None |
 | WAL generation stats (`pg_stat_wal`) | **14+** | None |
 | Session time tracking (active/idle time) | **14+** | None |
 | WAL records per query | **13+** | `pg_stat_statements` |
@@ -180,38 +258,6 @@ log_min_duration_statement = 1000              # log queries slower than 1s
 
 ---
 
-## Dashboard Views
-
-### 1. Overview Dashboard
-
-Connection gauge, throughput, cache hit ratio, WAL stats, archiver status, replication lag, checkpoint info, XID wraparound age, quick insights summary.
-
-### 2. Active Sessions
-
-Live `pg_stat_activity` view — color-coded by state with wait events, query text, PID, and duration.
-
-### 3. Top Queries *(requires pg_stat_statements)*
-
-Sortable by total/mean time, calls, rows. Per-query cache hit ratio, temp block usage. Version-aware: WAL records (PG 13+), JIT stats (PG 15+).
-
-### 4. Table Health
-
-Dead tuples, vacuum status, seq vs index scan ratios, bloat indicators, overdue vacuum detection.
-
-### 5. Lock Monitor
-
-Granted/waiting locks, blocking chains via `pg_blocking_pids()`, lock duration, summary by type.
-
-### 6. Clients
-
-Per-client IP aggregation with drill-down into individual backend threads.
-
-### 7. Insights
-
-Real-time 27-rule analyzer, severity-coded (critical -> warning -> info), configurable thresholds.
-
----
-
 ## Commands
 
 ```bash
@@ -223,6 +269,7 @@ pg-monk snapshot [connection]            # JSON to stdout
 pg-monk snapshot -f csv -o report.csv    # CSV to file
 
 pg-monk diagnose [connection]            # One-shot health check
+pg-monk diagnose -H db -U monitor -d app # psql-style flags work on every subcommand
 
 pg-monk init-config                      # Write default config to ~/.pgmonk.json
 ```
@@ -285,7 +332,7 @@ Generate a default config with `pg-monk init-config`, then edit `~/.pgmonk.json`
 
 ```
 pgmonk/
-├── cmd/pgmonk/main.go              # CLI (Cobra)
+├── cmd/pg-monk/main.go             # CLI (Cobra)
 ├── internal/
 │   ├── analyzer/rules.go           # 27 diagnostic rules
 │   ├── collector/                   # PostgreSQL metric collection (11 files)
@@ -293,6 +340,8 @@ pgmonk/
 │   ├── model/metrics.go            # Data structures (20+ types)
 │   ├── tui/                        # Terminal UI — 8 views (Bubble Tea)
 │   └── export/export.go            # JSON/CSV export
+├── scripts/demo/                   # Demo database, workload and VHS recording scripts
+├── docs/media/                     # README screenshots and demo video
 ├── .github/workflows/              # CI + Release
 ├── .goreleaser.yml
 ├── Makefile
@@ -306,13 +355,18 @@ pgmonk/
 ## Development
 
 ```bash
-git clone https://github.com/sjtly16/pg-monk.git
-cd pg-monk
+git clone https://github.com/sjtly16/pgmonk.git
+cd pgmonk
 make build       # Build binary
 make test        # Run tests
 make check       # fmt + vet + test + build
 make snapshot    # GoReleaser snapshot
 make help        # All targets
+
+# Demo database + README media (Docker)
+make demo-db     # seeded PostgreSQL 17 on :55433
+make demo-load   # realistic, slightly unhealthy workload
+make media       # re-record docs/media with VHS
 ```
 
 ---
@@ -321,6 +375,8 @@ make help        # All targets
 
 - [x] 7-view TUI with 16+ pg_stat views
 - [x] 27-rule analyzer with configurable thresholds
+- [x] Blocking-chain lock monitor
+- [ ] AI insights from a **local LLM** (Ollama / any OpenAI-compatible server) — nothing leaves your machine
 - [ ] Query plan visualization
 - [ ] Historical trend storage
 
