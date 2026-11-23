@@ -3,13 +3,13 @@ package collector
 import (
 	"context"
 
-	"github.com/shashank/pgmonk/internal/model"
+	"github.com/sjtly16/pgmonk/internal/model"
 )
 
 // collectWALStats gathers WAL generation metrics from pg_stat_wal (PG 14+).
 func (c *Collector) collectWALStats(ctx context.Context) (*model.WALStats, error) {
 	var w model.WALStats
-	err := c.pool.QueryRow(ctx, `
+	err := c.queryRow(ctx, `
 		SELECT
 			COALESCE(wal_records, 0),
 			COALESCE(wal_fpi, 0),
@@ -35,7 +35,7 @@ func (c *Collector) collectWALStats(ctx context.Context) (*model.WALStats, error
 // collectCheckpointerStats gathers checkpoint process stats from pg_stat_checkpointer (PG 17+).
 func (c *Collector) collectCheckpointerStats(ctx context.Context) (*model.CheckpointerStats, error) {
 	var s model.CheckpointerStats
-	err := c.pool.QueryRow(ctx, `
+	err := c.queryRow(ctx, `
 		SELECT
 			COALESCE(num_timed, 0),
 			COALESCE(num_requested, 0),
@@ -66,7 +66,7 @@ func (c *Collector) collectBGWriterStats(ctx context.Context) (*model.BGWriterSt
 
 	// PG 17+ separated checkpointer stats; bgwriter only has buffers_clean, maxwritten_clean, buffers_alloc.
 	// Older PG has checkpoint fields too, but we pull those in collectOverview already.
-	err := c.pool.QueryRow(ctx, `
+	err := c.queryRow(ctx, `
 		SELECT
 			COALESCE(buffers_clean, 0),
 			COALESCE(maxwritten_clean, 0),
@@ -86,7 +86,7 @@ func (c *Collector) collectBGWriterStats(ctx context.Context) (*model.BGWriterSt
 // collectArchiverStats gathers WAL archiver stats from pg_stat_archiver.
 func (c *Collector) collectArchiverStats(ctx context.Context) (*model.ArchiverStats, error) {
 	var a model.ArchiverStats
-	err := c.pool.QueryRow(ctx, `
+	err := c.queryRow(ctx, `
 		SELECT
 			COALESCE(archived_count, 0),
 			COALESCE(last_archived_wal, ''),
@@ -109,7 +109,7 @@ func (c *Collector) collectArchiverStats(ctx context.Context) (*model.ArchiverSt
 
 // collectIOStats gathers per-backend I/O stats from pg_stat_io (PG 16+).
 func (c *Collector) collectIOStats(ctx context.Context) ([]model.IOStat, error) {
-	rows, err := c.pool.Query(ctx, `
+	rows, err := c.query(ctx, `
 		SELECT
 			backend_type,
 			object,
@@ -165,7 +165,7 @@ func (c *Collector) collectConflictStats(ctx context.Context) (*model.ConflictSt
 			COALESCE(SUM(confl_deadlock), 0)
 		FROM pg_stat_database_conflicts
 	`
-	err := c.pool.QueryRow(ctx, query).Scan(
+	err := c.queryRow(ctx, query).Scan(
 		&s.ConflTablespace, &s.ConflLock, &s.ConflSnapshot,
 		&s.ConflBufferpin, &s.ConflDeadlock,
 	)
@@ -175,7 +175,7 @@ func (c *Collector) collectConflictStats(ctx context.Context) (*model.ConflictSt
 
 	// confl_active_logicalslot added in PG 15.
 	if c.serverInfo.VersionNum >= 150000 {
-		_ = c.pool.QueryRow(ctx, `
+		_ = c.queryRow(ctx, `
 			SELECT COALESCE(SUM(confl_active_logicalslot), 0)
 			FROM pg_stat_database_conflicts
 		`).Scan(&s.ConflLogicalSlot)
@@ -186,7 +186,7 @@ func (c *Collector) collectConflictStats(ctx context.Context) (*model.ConflictSt
 
 // collectTableIOStats gathers table-level I/O stats from pg_statio_user_tables.
 func (c *Collector) collectTableIOStats(ctx context.Context) ([]model.TableIOStat, error) {
-	rows, err := c.pool.Query(ctx, `
+	rows, err := c.query(ctx, `
 		SELECT
 			schemaname,
 			relname,
@@ -233,7 +233,7 @@ func (c *Collector) collectTableIOStats(ctx context.Context) ([]model.TableIOSta
 
 // collectVacuumProgress gathers live vacuum progress from pg_stat_progress_vacuum.
 func (c *Collector) collectVacuumProgress(ctx context.Context) ([]model.VacuumProgress, error) {
-	rows, err := c.pool.Query(ctx, `
+	rows, err := c.query(ctx, `
 		SELECT
 			p.pid,
 			COALESCE(d.datname, ''),

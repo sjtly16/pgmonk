@@ -5,7 +5,7 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
-	"github.com/shashank/pgmonk/internal/analyzer"
+	"github.com/sjtly16/pgmonk/internal/analyzer"
 )
 
 // renderInsights renders the rule-based insights view.

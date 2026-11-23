@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/shashank/pgmonk/internal/export"
-	"github.com/shashank/pgmonk/internal/model"
+	"github.com/sjtly16/pgmonk/internal/export"
+	"github.com/sjtly16/pgmonk/internal/model"
 )
 
 func testSnapshot() *model.Snapshot {

@@ -4,8 +4,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/shashank/pgmonk/internal/analyzer"
-	"github.com/shashank/pgmonk/internal/model"
+	"github.com/sjtly16/pgmonk/internal/analyzer"
+	"github.com/sjtly16/pgmonk/internal/model"
 )
 
 func filterByCategory(insights []analyzer.Insight, cat string) []analyzer.Insight {
@@ -34,7 +34,10 @@ func TestAnalyze_HealthyDatabase(t *testing.T) {
 }
 
 func TestSeverity_String(t *testing.T) {
-	tests := []struct{ sev analyzer.Severity; want string }{
+	tests := []struct {
+		sev  analyzer.Severity
+		want string
+	}{
 		{analyzer.Info, "INFO"}, {analyzer.Warning, "WARN"}, {analyzer.Critical, "CRIT"},
 	}
 	for _, tt := range tests {
@@ -49,7 +52,12 @@ func TestSeverity_String(t *testing.T) {
 }
 
 func TestCacheHitRatio(t *testing.T) {
-	cases := []struct{ name string; ratio float64; wantLen int; wantSev analyzer.Severity }{
+	cases := []struct {
+		name    string
+		ratio   float64
+		wantLen int
+		wantSev analyzer.Severity
+	}{
 		{"zero", 0, 0, 0},
 		{"excellent", 99.5, 0, 0},
 		{"warning", 97.5, 1, analyzer.Warning},
@@ -70,7 +78,12 @@ func TestCacheHitRatio(t *testing.T) {
 }
 
 func TestConnections(t *testing.T) {
-	cases := []struct{ name string; total, max int; wantSev analyzer.Severity; wantEmpty bool }{
+	cases := []struct {
+		name       string
+		total, max int
+		wantSev    analyzer.Severity
+		wantEmpty  bool
+	}{
 		{"critical", 90, 100, analyzer.Critical, false},
 		{"warning", 75, 100, analyzer.Warning, false},
 		{"healthy", 50, 100, 0, true},
@@ -134,7 +147,12 @@ func TestUnusedIndexes(t *testing.T) {
 }
 
 func TestXIDWraparound(t *testing.T) {
-	cases := []struct{ name string; age int64; wantSev analyzer.Severity; wantEmpty bool }{
+	cases := []struct {
+		name      string
+		age       int64
+		wantSev   analyzer.Severity
+		wantEmpty bool
+	}{
 		{"critical", 1_600_000_000, analyzer.Critical, false},
 		{"warning", 600_000_000, analyzer.Warning, false},
 		{"healthy", 100_000_000, 0, true},

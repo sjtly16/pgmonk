@@ -7,8 +7,8 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
-	"github.com/shashank/pgmonk/internal/model"
-	"github.com/shashank/pgmonk/internal/tui"
+	"github.com/sjtly16/pgmonk/internal/model"
+	"github.com/sjtly16/pgmonk/internal/tui"
 )
 
 func testServerInfo() model.ServerInfo {

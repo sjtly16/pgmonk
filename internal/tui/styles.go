@@ -11,7 +11,7 @@ var (
 	colorDanger    = lipgloss.Color("#EF4444") // red
 	colorMuted     = lipgloss.Color("#6B7280") // gray
 	colorText      = lipgloss.Color("#E5E7EB") // light gray
-	colorAccent = lipgloss.Color("#A78BFA") // light violet
+	colorAccent    = lipgloss.Color("#A78BFA") // light violet
 )
 
 // Layout styles.

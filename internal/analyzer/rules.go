@@ -2,9 +2,11 @@ package analyzer
 
 import (
 	"fmt"
+	"sort"
+	"strings"
 	"time"
 
-	"github.com/shashank/pgmonk/internal/model"
+	"github.com/sjtly16/pgmonk/internal/model"
 )
 
 type Severity int
@@ -120,6 +122,11 @@ func Analyze(snap *model.Snapshot) []Insight {
 	insights = append(insights, checkWALBuffersFull(snap)...)
 	insights = append(insights, checkHighTempBlkQueries(snap)...)
 	insights = append(insights, checkWaitEvents(snap)...)
+
+	// Most severe first; rule order is preserved within a severity.
+	sort.SliceStable(insights, func(i, j int) bool {
+		return insights[i].Severity > insights[j].Severity
+	})
 	return insights
 }
 
@@ -226,7 +233,7 @@ func checkSlowQueries(snap *model.Snapshot) []Insight {
 	for _, q := range snap.Queries {
 		if q.MeanExecTime > 5000 && q.Calls > 10 {
 			insights = append(insights, Insight{Warning, "queries", "Slow frequent query detected",
-				fmt.Sprintf("Query with %d calls averages %.0fms execution time.", q.Calls, q.MeanExecTime),
+				fmt.Sprintf("%d calls averaging %.0fms: %s", q.Calls, q.MeanExecTime, shortQuery(q.Query, 80)),
 				"Run EXPLAIN ANALYZE on this query and consider adding indexes or rewriting it."})
 			if len(insights) >= 3 {
 				break
@@ -234,6 +241,15 @@ func checkSlowQueries(snap *model.Snapshot) []Insight {
 		}
 	}
 	return insights
+}
+
+// shortQuery collapses whitespace and truncates query text for messages.
+func shortQuery(q string, max int) string {
+	r := []rune(strings.Join(strings.Fields(q), " "))
+	if len(r) <= max {
+		return string(r)
+	}
+	return string(r[:max-3]) + "..."
 }
 
 func checkClientConcentration(snap *model.Snapshot) []Insight {

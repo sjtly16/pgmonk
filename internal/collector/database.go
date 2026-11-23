@@ -3,7 +3,7 @@ package collector
 import (
 	"context"
 
-	"github.com/shashank/pgmonk/internal/model"
+	"github.com/sjtly16/pgmonk/internal/model"
 )
 
 // collectOverview gathers database-level aggregate metrics.
@@ -12,7 +12,7 @@ func (c *Collector) collectOverview(ctx context.Context) (model.Overview, *dbAbs
 	var abs dbAbsoluteStats
 
 	// Connection counts from pg_stat_activity.
-	err := c.pool.QueryRow(ctx, `
+	err := c.queryRow(ctx, `
 		SELECT
 			COUNT(*) FILTER (WHERE state = 'active'),
 			COUNT(*) FILTER (WHERE state = 'idle'),
@@ -35,7 +35,7 @@ func (c *Collector) collectOverview(ctx context.Context) (model.Overview, *dbAbs
 	// Per-database stats from pg_stat_database.
 	// PG 14+ added session_time, active_time, idle_in_transaction_time, sessions, etc.
 	if c.serverInfo.VersionNum >= 140000 {
-		err = c.pool.QueryRow(ctx, `
+		err = c.queryRow(ctx, `
 			SELECT
 				d.datname,
 				COALESCE(s.xact_commit, 0),
@@ -72,7 +72,7 @@ func (c *Collector) collectOverview(ctx context.Context) (model.Overview, *dbAbs
 			&o.Sessions, &o.SessionsAbandoned, &o.SessionsFatal, &o.SessionsKilled,
 		)
 	} else {
-		err = c.pool.QueryRow(ctx, `
+		err = c.queryRow(ctx, `
 			SELECT
 				d.datname,
 				COALESCE(s.xact_commit, 0),
@@ -118,7 +118,7 @@ func (c *Collector) collectOverview(ctx context.Context) (model.Overview, *dbAbs
 
 	// Checkpoint stats — PG 17+ uses pg_stat_checkpointer, older uses pg_stat_bgwriter.
 	if c.serverInfo.HasStatCheckpointer {
-		_ = c.pool.QueryRow(ctx, `
+		_ = c.queryRow(ctx, `
 			SELECT
 				COALESCE(num_timed, 0),
 				COALESCE(num_requested, 0),
@@ -132,7 +132,7 @@ func (c *Collector) collectOverview(ctx context.Context) (model.Overview, *dbAbs
 			&o.CheckpointSyncTime,
 		)
 	} else {
-		_ = c.pool.QueryRow(ctx, `
+		_ = c.queryRow(ctx, `
 			SELECT
 				COALESCE(checkpoints_timed, 0),
 				COALESCE(checkpoints_req, 0),
@@ -148,7 +148,7 @@ func (c *Collector) collectOverview(ctx context.Context) (model.Overview, *dbAbs
 	}
 
 	// Transaction ID wraparound monitoring.
-	_ = c.pool.QueryRow(ctx, `
+	_ = c.queryRow(ctx, `
 		SELECT
 			COALESCE(age(datfrozenxid), 0),
 			datname
@@ -159,7 +159,7 @@ func (c *Collector) collectOverview(ctx context.Context) (model.Overview, *dbAbs
 	`).Scan(&o.DataFrozenXIDAge, &o.OldestXactDB)
 
 	// Oldest running transaction age.
-	_ = c.pool.QueryRow(ctx, `
+	_ = c.queryRow(ctx, `
 		SELECT COALESCE(MAX(age(backend_xid)), 0)
 		FROM pg_stat_activity
 		WHERE backend_xid IS NOT NULL

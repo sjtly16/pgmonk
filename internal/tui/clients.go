@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/charmbracelet/lipgloss"
-	"github.com/shashank/pgmonk/internal/model"
+	"github.com/sjtly16/pgmonk/internal/model"
 )
 
 // renderClients renders the per-client / per-thread metrics view.
@@ -112,7 +112,7 @@ func (m Model) renderClientSummary() string {
 		// Indicator for the connection bar.
 		connBar := miniBar(c.TotalConnections, m.snapshot.Overview.MaxConnections, 5)
 
-		b.WriteString(fmt.Sprintf("  %-18s %s %s %s %s %s %s %s %-18s %s %s\n",
+		fmt.Fprintf(&b, "  %-18s %s %s %s %s %s %s %s %s %s %s\n",
 			truncate(c.ClientAddr, 18),
 			totalSt.Width(6).Render(fmt.Sprintf("%d", c.TotalConnections)),
 			activeSt.Width(6).Render(fmt.Sprintf("%d", c.ActiveConnections)),
@@ -121,10 +121,10 @@ func (m Model) renderClientSummary() string {
 			waitSt.Width(6).Render(fmt.Sprintf("%d", c.WaitingConnections)),
 			durStyle(c.LongestQueryDur).Width(12).Render(maxQueryStr),
 			durStyle(c.LongestTxDur).Width(12).Render(maxTxStr),
-			lipgloss.NewStyle().Foreground(colorMuted).Render(users),
-			lipgloss.NewStyle().Foreground(colorMuted).Render(dbs),
+			lipgloss.NewStyle().Foreground(colorMuted).Width(18).Render(users),
+			lipgloss.NewStyle().Foreground(colorMuted).Width(16).Render(dbs),
 			connBar,
-		))
+		)
 	}
 
 	b.WriteString("\n")
@@ -210,7 +210,14 @@ func (m Model) renderClientThreads() string {
 			break
 		}
 
-		state := stateStyle(t.State).Render(fmt.Sprintf("%-8s", t.State))
+		stateLabel := t.State
+		switch t.State {
+		case "idle in transaction":
+			stateLabel = "idle-tx"
+		case "idle in transaction (aborted)":
+			stateLabel = "idle-tx!"
+		}
+		state := stateStyle(t.State).Width(8).Render(truncate(stateLabel, 8))
 
 		queryDur := formatShortDuration(t.QueryDuration)
 		txDur := formatShortDuration(t.TxDuration)
@@ -223,7 +230,7 @@ func (m Model) renderClientThreads() string {
 		uptime := formatUptime(t.Uptime)
 		query := truncate(strings.ReplaceAll(t.Query, "\n", " "), 35)
 
-		b.WriteString(fmt.Sprintf("  %-7d %s %-12s %-15s %s %s %-18s %-10s %s\n",
+		fmt.Fprintf(&b, "  %-7d %s %-12s %-15s %s %s %-18s %s %s\n",
 			t.PID,
 			state,
 			truncate(t.UserName, 12),
@@ -231,9 +238,9 @@ func (m Model) renderClientThreads() string {
 			durStyle(t.QueryDuration).Width(10).Render(queryDur),
 			durStyle(t.TxDuration).Width(10).Render(txDur),
 			truncate(wait, 18),
-			lipgloss.NewStyle().Foreground(colorMuted).Render(uptime),
+			lipgloss.NewStyle().Foreground(colorMuted).Width(10).Render(uptime),
 			lipgloss.NewStyle().Foreground(colorText).Render(query),
-		))
+		)
 	}
 
 	// Per-state breakdown mini chart in a box.

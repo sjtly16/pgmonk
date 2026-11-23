@@ -3,18 +3,19 @@ package main
 import (
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/spf13/cobra"
 
-	"github.com/shashank/pgmonk/internal/analyzer"
-	"github.com/shashank/pgmonk/internal/collector"
-	"github.com/shashank/pgmonk/internal/config"
-	"github.com/shashank/pgmonk/internal/export"
-	"github.com/shashank/pgmonk/internal/model"
-	"github.com/shashank/pgmonk/internal/tui"
+	"github.com/sjtly16/pgmonk/internal/analyzer"
+	"github.com/sjtly16/pgmonk/internal/collector"
+	"github.com/sjtly16/pgmonk/internal/config"
+	"github.com/sjtly16/pgmonk/internal/export"
+	"github.com/sjtly16/pgmonk/internal/model"
+	"github.com/sjtly16/pgmonk/internal/tui"
 )
 
 var (
@@ -51,18 +52,21 @@ Or using psql-compatible flags:
 
 Or using environment variable:
   PGMONK_DSN="postgresql://..." pg-monk`,
-		Args:    cobra.MaximumNArgs(1),
-		RunE:    runDashboard,
-		Version: fmt.Sprintf("%s (commit: %s, built: %s)", version, commit, date),
+		Args: cobra.MaximumNArgs(1),
+		RunE: runDashboard,
+		// Runtime failures (e.g. connection refused) shouldn't dump usage text.
+		SilenceUsage: true,
+		Version:      fmt.Sprintf("%s (commit: %s, built: %s)", version, commit, date),
 	}
 
-	// psql-compatible connection flags.
-	rootCmd.Flags().StringVarP(&flagHost, "host", "H", "localhost", "Database host")
-	rootCmd.Flags().IntVarP(&flagPort, "port", "p", 5432, "Database port")
-	rootCmd.Flags().StringVarP(&flagUser, "user", "U", "", "Database user")
-	rootCmd.Flags().StringVarP(&flagPassword, "password", "W", "", "Database password")
-	rootCmd.Flags().StringVarP(&flagDBName, "dbname", "d", "", "Database name")
-	rootCmd.Flags().StringVar(&flagSSLMode, "sslmode", "prefer", "SSL mode (disable, require, prefer)")
+	// psql-compatible connection flags, shared by every subcommand.
+	pf := rootCmd.PersistentFlags()
+	pf.StringVarP(&flagHost, "host", "H", "localhost", "Database host")
+	pf.IntVarP(&flagPort, "port", "p", 5432, "Database port")
+	pf.StringVarP(&flagUser, "user", "U", "", "Database user")
+	pf.StringVarP(&flagPassword, "password", "W", "", "Database password")
+	pf.StringVarP(&flagDBName, "dbname", "d", "", "Database name")
+	pf.StringVar(&flagSSLMode, "sslmode", "prefer", "SSL mode (disable, require, prefer)")
 	rootCmd.Flags().DurationVarP(&flagInterval, "interval", "i", 2*time.Second, "Refresh interval")
 	rootCmd.PersistentFlags().StringVar(&flagConfig, "config", "", "Config file path (default: ~/.pgmonk.json)")
 
@@ -252,25 +256,29 @@ func runSnapshot(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("no data collected")
 	}
 
-	// Determine output writer.
-	w := os.Stdout
-	if output != "" {
-		f, err := os.Create(output)
-		if err != nil {
-			return err
+	write := func(w io.Writer) error {
+		switch format {
+		case "json":
+			return export.WriteJSON(w, snap)
+		case "csv":
+			return export.WriteCSVOverview(w, snap)
+		default:
+			return fmt.Errorf("unknown format: %s (supported: json, csv)", format)
 		}
-		defer f.Close()
-		w = f
 	}
 
-	switch format {
-	case "json":
-		return export.WriteJSON(w, snap)
-	case "csv":
-		return export.WriteCSVOverview(w, snap)
-	default:
-		return fmt.Errorf("unknown format: %s (supported: json, csv)", format)
+	if output == "" {
+		return write(os.Stdout)
 	}
+	f, err := os.Create(output)
+	if err != nil {
+		return err
+	}
+	if err := write(f); err != nil {
+		_ = f.Close()
+		return err
+	}
+	return f.Close()
 }
 
 // runDiagnose performs a health check and prints insights.

@@ -4,7 +4,7 @@ import (
 	"context"
 	"strings"
 
-	"github.com/shashank/pgmonk/internal/model"
+	"github.com/sjtly16/pgmonk/internal/model"
 )
 
 // collectServerInfo gathers one-time server metadata.
@@ -12,14 +12,14 @@ func (c *Collector) collectServerInfo(ctx context.Context) (model.ServerInfo, er
 	var info model.ServerInfo
 
 	// Version string and numeric version.
-	err := c.pool.QueryRow(ctx, "SELECT version(), current_setting('server_version_num')::int").
+	err := c.queryRow(ctx, "SELECT version(), current_setting('server_version_num')::int").
 		Scan(&info.Version, &info.VersionNum)
 	if err != nil {
 		return info, err
 	}
 
 	// Server start time and max connections.
-	err = c.pool.QueryRow(ctx, `
+	err = c.queryRow(ctx, `
 		SELECT
 			pg_postmaster_start_time(),
 			current_setting('max_connections')::int
@@ -29,11 +29,11 @@ func (c *Collector) collectServerInfo(ctx context.Context) (model.ServerInfo, er
 	}
 
 	// Data directory (may fail without superuser, that's okay).
-	_ = c.pool.QueryRow(ctx, "SELECT current_setting('data_directory')").
+	_ = c.queryRow(ctx, "SELECT current_setting('data_directory')").
 		Scan(&info.DataDirectory)
 
 	// Detect installed extensions.
-	rows, err := c.pool.Query(ctx, "SELECT extname FROM pg_extension ORDER BY extname")
+	rows, err := c.query(ctx, "SELECT extname FROM pg_extension ORDER BY extname")
 	if err != nil {
 		return info, err
 	}
@@ -69,16 +69,15 @@ func (c *Collector) collectServerInfo(ctx context.Context) (model.ServerInfo, er
 
 	// Detect if this is a standby/replica.
 	var isInRecovery bool
-	if err := c.pool.QueryRow(ctx, "SELECT pg_is_in_recovery()").Scan(&isInRecovery); err == nil {
+	if err := c.queryRow(ctx, "SELECT pg_is_in_recovery()").Scan(&isInRecovery); err == nil {
 		info.IsStandby = isInRecovery
 	}
 
 	// Check if track_io_timing is enabled.
 	var trackIO string
-	if err := c.pool.QueryRow(ctx, "SHOW track_io_timing").Scan(&trackIO); err == nil {
+	if err := c.queryRow(ctx, "SHOW track_io_timing").Scan(&trackIO); err == nil {
 		info.TrackIOTiming = strings.EqualFold(trackIO, "on")
 	}
 
 	return info, nil
 }
-
