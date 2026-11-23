@@ -7,18 +7,30 @@ import (
 )
 
 // collectWALStats gathers WAL generation metrics from pg_stat_wal (PG 14+).
+//
+// PG 18 removed wal_write, wal_sync, wal_write_time and wal_sync_time from
+// pg_stat_wal; the same numbers now live in pg_stat_io rows with object = 'wal'.
 func (c *Collector) collectWALStats(ctx context.Context) (*model.WALStats, error) {
+	ioCols := `
+			COALESCE(wal_write, 0),
+			COALESCE(wal_sync, 0),
+			COALESCE(wal_write_time, 0),
+			COALESCE(wal_sync_time, 0),`
+	if c.serverInfo.VersionNum >= 180000 {
+		ioCols = `
+			COALESCE((SELECT sum(writes) FROM pg_stat_io WHERE object = 'wal'), 0)::bigint,
+			COALESCE((SELECT sum(fsyncs) FROM pg_stat_io WHERE object = 'wal'), 0)::bigint,
+			COALESCE((SELECT sum(write_time) FROM pg_stat_io WHERE object = 'wal'), 0)::float8,
+			COALESCE((SELECT sum(fsync_time) FROM pg_stat_io WHERE object = 'wal'), 0)::float8,`
+	}
+
 	var w model.WALStats
 	err := c.queryRow(ctx, `
 		SELECT
 			COALESCE(wal_records, 0),
 			COALESCE(wal_fpi, 0),
 			COALESCE(wal_bytes, 0),
-			COALESCE(wal_buffers_full, 0),
-			COALESCE(wal_write, 0),
-			COALESCE(wal_sync, 0),
-			COALESCE(wal_write_time, 0),
-			COALESCE(wal_sync_time, 0),
+			COALESCE(wal_buffers_full, 0),`+ioCols+`
 			stats_reset
 		FROM pg_stat_wal
 	`).Scan(
@@ -34,12 +46,17 @@ func (c *Collector) collectWALStats(ctx context.Context) (*model.WALStats, error
 
 // collectCheckpointerStats gathers checkpoint process stats from pg_stat_checkpointer (PG 17+).
 func (c *Collector) collectCheckpointerStats(ctx context.Context) (*model.CheckpointerStats, error) {
+	// num_done was added in PG 18.
+	numDone := "0::bigint"
+	if c.serverInfo.VersionNum >= 180000 {
+		numDone = "COALESCE(num_done, 0)"
+	}
 	var s model.CheckpointerStats
 	err := c.queryRow(ctx, `
 		SELECT
 			COALESCE(num_timed, 0),
 			COALESCE(num_requested, 0),
-			COALESCE(num_done, 0),
+			`+numDone+`,
 			COALESCE(restartpoints_timed, 0),
 			COALESCE(restartpoints_req, 0),
 			COALESCE(restartpoints_done, 0),
