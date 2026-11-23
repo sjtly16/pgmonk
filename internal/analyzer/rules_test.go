@@ -281,3 +281,63 @@ func TestStandbyConflicts(t *testing.T) {
 		t.Error("expected standby conflict insight")
 	}
 }
+
+func TestIdleInTransactionHonorsThresholds(t *testing.T) {
+	analyzer.SetThresholds(analyzer.DefaultThresholds()) // warn 30s, critical 5m
+	now := time.Now()
+	snap := func(age time.Duration) *model.Snapshot {
+		return &model.Snapshot{CollectedAt: now, Activities: []model.Activity{
+			{PID: 42, ApplicationName: "billing", State: "idle in transaction", StateChange: now.Add(-age)},
+		}}
+	}
+	if got := filterByTitlePrefix(analyzer.Analyze(snap(10*time.Second)), "1 session(s) idle"); len(got) != 0 {
+		t.Errorf("10s idle should not fire: %+v", got)
+	}
+	got := filterByTitlePrefix(analyzer.Analyze(snap(2*time.Minute)), "1 session(s) idle")
+	if len(got) != 1 || got[0].Severity != analyzer.Warning {
+		t.Fatalf("2m idle should warn (a single session must be enough): %+v", got)
+	}
+	got = filterByTitlePrefix(analyzer.Analyze(snap(10*time.Minute)), "1 session(s) idle")
+	if len(got) != 1 || got[0].Severity != analyzer.Critical {
+		t.Fatalf("10m idle should be critical: %+v", got)
+	}
+}
+
+func TestBlockingLocksRootedAtHolder(t *testing.T) {
+	now := time.Now()
+	snap := &model.Snapshot{
+		CollectedAt: now,
+		Activities: []model.Activity{
+			{PID: 10, ApplicationName: "admin-console", State: "idle in transaction", Query: "SELECT * FROM customers WHERE id = 7 FOR UPDATE"},
+			{PID: 20, ApplicationName: "signup-api", State: "active"},
+			{PID: 30, ApplicationName: "email-sync", State: "active"},
+		},
+		Locks: []model.LockInfo{
+			{PID: 10, Granted: true},
+			{PID: 20, Granted: false, BlockedByPIDs: []int{10}, Duration: 2 * time.Minute},
+			{PID: 30, Granted: false, BlockedByPIDs: []int{20}, Duration: 90 * time.Second}, // queued behind 20
+		},
+	}
+	got := filterByCategory(analyzer.Analyze(snap), "locks")
+	if len(got) != 1 {
+		t.Fatalf("want one insight for the root blocker, got %+v", got)
+	}
+	if got[0].Title != "Session 10 is blocking 2 other session(s)" || got[0].Severity != analyzer.Critical {
+		t.Errorf("unexpected insight: %+v", got[0])
+	}
+
+	snap.Locks[1].Duration, snap.Locks[2].Duration = 2*time.Second, time.Second
+	if got := filterByCategory(analyzer.Analyze(snap), "locks"); len(got) != 0 {
+		t.Errorf("short waits should not fire: %+v", got)
+	}
+}
+
+func filterByTitlePrefix(insights []analyzer.Insight, prefix string) []analyzer.Insight {
+	var out []analyzer.Insight
+	for _, i := range insights {
+		if len(i.Title) >= len(prefix) && i.Title[:len(prefix)] == prefix {
+			out = append(out, i)
+		}
+	}
+	return out
+}
