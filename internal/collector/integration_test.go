@@ -182,6 +182,24 @@ func TestCollectAgainstLiveServer(t *testing.T) {
 		}
 	}
 
+	if len(snap.Settings) < 20 {
+		t.Errorf("expected diagnostic settings, got %d", len(snap.Settings))
+	}
+
+	// Suggested-SQL verification: valid queries plan, invalid ones report the
+	// server's error, and anything that isn't a single SELECT is refused.
+	if err := coll.ExplainReadOnly(ctx, "SELECT relname, n_dead_tup FROM pg_stat_user_tables ORDER BY 2 DESC LIMIT 5;"); err != nil {
+		t.Errorf("valid query rejected: %v", err)
+	}
+	if err := coll.ExplainReadOnly(ctx, "SELECT no_such_column FROM pg_stat_activity"); err == nil {
+		t.Error("query with a non-existent column was accepted")
+	}
+	for _, bad := range []string{"DELETE FROM pgmonk_it", "SELECT 1; DROP TABLE pgmonk_it", "VACUUM pgmonk_it"} {
+		if err := coll.ExplainReadOnly(ctx, bad); err != collector.ErrNotReadOnly {
+			t.Errorf("%q: want ErrNotReadOnly, got %v", bad, err)
+		}
+	}
+
 	// The analyzer must run cleanly on real data.
 	_ = analyzer.Analyze(snap)
 }

@@ -191,6 +191,11 @@ func (c *Collector) collect(ctx context.Context) (*model.Snapshot, error) {
 	c.prevStats = absStats
 	c.prevTime = time.Now()
 
+	// Diagnostic configuration (best effort).
+	if settings, err := c.collectSettings(ctx); err == nil {
+		snap.Settings = settings
+	}
+
 	// Active sessions.
 	activities, err := c.collectActivities(ctx)
 	if err != nil {
