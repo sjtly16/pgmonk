@@ -132,6 +132,13 @@ func (m Model) renderAISection(innerW int) string {
 		textW = 40
 	}
 	wrap := func(s string) string { return lipgloss.NewStyle().Width(textW).Render(s) }
+	// field renders "Label     text" with continuation lines indented under
+	// the text rather than wrapping back to the label column.
+	const labelW = 10
+	field := func(labelText, text string) string {
+		body := lipgloss.NewStyle().Width(textW - labelW).Render(text)
+		return labelText + strings.ReplaceAll(body, "\n", "\n"+strings.Repeat(" ", labelW))
+	}
 
 	if res.Response == nil {
 		body := styleWarn.Render("The model's answer wasn't valid JSON — showing it as-is:") + "\n" +
@@ -154,13 +161,13 @@ func (m Model) renderAISection(innerW int) string {
 		var lines []string
 		lines = append(lines, aiSeverityIcon(f.Severity)+" "+aiSeverityStyle(f.Severity).Render(f.Title))
 		if f.Evidence != "" {
-			lines = append(lines, wrap(label("Evidence  ")+f.Evidence))
+			lines = append(lines, field(label("Evidence  "), f.Evidence))
 		}
 		if f.RootCause != "" {
-			lines = append(lines, wrap(label("Cause     ")+f.RootCause))
+			lines = append(lines, field(label("Cause     "), f.RootCause))
 		}
 		if f.Action != "" {
-			lines = append(lines, wrap(label("Action    ")+f.Action))
+			lines = append(lines, field(label("Action    "), f.Action))
 		}
 		if f.SQL != "" {
 			sqlLabel, status := "Check     ", styleGood.Render("✓ verified on this server")

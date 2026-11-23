@@ -104,3 +104,16 @@ func TestInsightsTabTriggersAIOnce(t *testing.T) {
 }
 
 func keyMsg(k string) tea.KeyMsg { return tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune(k)} }
+
+func TestAIFieldHangingIndent(t *testing.T) {
+	m := aiTestModel(t)
+	m.aiResult = &ai.Result{At: time.Now(), Response: &ai.Response{Summary: "s", Findings: []ai.Finding{
+		{Severity: "warning", Title: "t", Action: strings.Repeat("word ", 40)},
+	}}}
+	out := m.renderAISection(60)
+	for _, line := range strings.Split(out, "\n") {
+		if strings.Contains(line, "word") && !strings.Contains(line, "Action") && !strings.Contains(line, "          word") {
+			t.Errorf("continuation line not indented under the text: %q", line)
+		}
+	}
+}

@@ -163,6 +163,10 @@ pg-monk --ai postgresql://monitor@localhost/mydb          # Insights tab (7); pr
 pg-monk diagnose --ai postgresql://monitor@localhost/mydb # one-shot, rules + AI
 ```
 
+![AI insights](docs/media/ai-insights.png)
+
+<sub>`qwen2.5:7b` on the demo database. Checks marked ✓ were planned with EXPLAIN on the server; the ℹ note is pg-monk correcting the model (a restart-only setting can't be applied with `pg_reload_conf()`).</sub>
+
 **How it stays accurate.** Small local models confidently invent `pg_stat_*` columns, and they don't know releases newer than their training data (in testing, `qwen2.5` 3B and 7B both listed non-existent `pg_stat_wal` columns for PostgreSQL 18). pg-monk grounds the model instead of trusting it:
 
 1. **Version detection** — on connect, pg-monk reads the server version *and* the live catalog of every statistics view and column.
@@ -179,7 +183,7 @@ pg-monk diagnose --ai postgresql://monitor@localhost/mydb # one-shot, rules + AI
 pg-monk --ai --ai-provider openai --ai-url http://localhost:1234/v1 --ai-model <model>   # LM Studio, llama.cpp, vLLM, ...
 ```
 
-Inference speed depends on your hardware: native Ollama on Apple Silicon or a GPU takes seconds per analysis; CPU-only inference (e.g. Ollama inside Docker on a Mac) can take a minute or more.
+Inference speed depends on your hardware. Measured with `qwen2.5:7b` on the demo database: about **15–18 s** per analysis with native Ollama on an Apple M5 Pro, versus **75–90 s** CPU-only (Ollama in Docker on the same Mac). Like any small model it can be wrong or vary between runs — treat its output as a starting point and check the ✓-verified queries yourself.
 
 ---
 
