@@ -49,6 +49,13 @@ func TestCollectAgainstLiveServer(t *testing.T) {
 		t.Fatalf("setup: %v", err)
 	}
 	t.Cleanup(func() { _, _ = setup.Exec(context.Background(), "DROP TABLE IF EXISTS pgmonk_it") })
+	// Make the setup session's table I/O visible now rather than whenever the
+	// backend next flushes (PG 15+ flushes lazily; older versions use the
+	// stats collector, which the sleeps below cover).
+	_, _ = setup.Exec(ctx, "SELECT count(*) FROM pgmonk_it")
+	_, _ = setup.Exec(ctx, "SELECT pg_stat_force_next_flush()")
+	time.Sleep(600 * time.Millisecond) // PG <= 14 sends stats at most every 500ms
+	_, _ = setup.Exec(ctx, "SELECT 1")
 
 	// Holder: takes a row lock and sits idle in transaction.
 	holder, err := pgx.Connect(ctx, dsn)
@@ -110,6 +117,26 @@ func TestCollectAgainstLiveServer(t *testing.T) {
 	}
 	if len(snap.Tables) == 0 {
 		t.Error("no tables collected")
+	}
+	// Optional collectors swallow errors, so assert each one actually ran on
+	// the versions that support it — this is where column drift hides.
+	if info.HasStatWAL && snap.WALStats == nil {
+		t.Error("pg_stat_wal available but WAL stats missing (column drift?)")
+	}
+	if info.HasStatCheckpointer && snap.CheckpointerStats == nil {
+		t.Error("pg_stat_checkpointer available but checkpointer stats missing (column drift?)")
+	}
+	if info.HasStatIO && len(snap.IOStats) == 0 {
+		t.Error("pg_stat_io available but I/O stats missing (column drift?)")
+	}
+	if snap.BGWriterStats == nil {
+		t.Error("bgwriter stats missing")
+	}
+	if snap.ArchiverStats == nil {
+		t.Error("archiver stats missing")
+	}
+	if len(snap.TableIOStats) == 0 {
+		t.Error("table I/O stats missing")
 	}
 	if info.HasStatStatements && len(snap.Queries) == 0 {
 		t.Error("pg_stat_statements present but no queries collected")
