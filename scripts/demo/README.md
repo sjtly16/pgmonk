@@ -8,6 +8,7 @@ make demo-db      # PostgreSQL 17 + pg_stat_statements on localhost:55433, seede
 make demo-load    # leave running in another terminal: traffic, an idle-in-transaction session,
                   # a blocking lock chain and a heavy reporting query
 make media        # re-records docs/media/*.png, demo.mp4 and demo.gif with VHS (in Docker)
+make media-ai     # screenshots the AI panel; needs Ollama running on the host with qwen2.5:7b pulled
 make demo-down    # clean up
 ```
 

@@ -5,7 +5,7 @@ DATE ?= $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
 LDFLAGS=-ldflags "-s -w -X main.version=$(VERSION) -X main.commit=$(COMMIT) -X main.date=$(DATE)"
 
 .PHONY: build run test clean fmt lint vet check snapshot install init-config help \
-	demo-db demo-load demo-reset demo-down media
+	demo-db demo-load demo-reset demo-down media media-ai
 
 ## build: Build the binary
 build:
@@ -91,6 +91,13 @@ media:
 	docker run --rm --network $(DEMO_NET) -v "$$PWD":/vhs $(VHS_IMAGE) scripts/demo/demo.tape
 	docker run --rm -v "$$PWD":/vhs -w /vhs --entrypoint ffmpeg $(VHS_IMAGE) -loglevel error -y \
 		-i docs/media/demo.mp4 -vf "$(GIF_FILTER)" docs/media/demo.gif
+
+## media-ai: Screenshot the AI panel (needs Ollama on the host with AI_MODEL pulled)
+AI_MODEL ?= qwen2.5:7b
+media-ai:
+	GOOS=linux GOARCH=$$(go env GOARCH) CGO_ENABLED=0 go build -ldflags "-s -w" -o scripts/demo/bin/pg-monk ./cmd/pg-monk
+	docker run --rm --network $(DEMO_NET) -e AI_URL=http://host.docker.internal:11434 -e AI_MODEL=$(AI_MODEL) \
+		-v "$$PWD":/vhs $(VHS_IMAGE) scripts/demo/ai.tape
 
 ## help: Show this help
 help:
